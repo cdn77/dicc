@@ -6,4 +6,4 @@
   - [Config and compilation](user/04-config-and-compilation.md)
 - Developer docs
   - coming soon
-- [GitHub](https://github.com/jahudka/dicc)
+- [GitHub](https://github.com/cdn77/dicc)

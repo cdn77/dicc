@@ -152,7 +152,7 @@ new features. There's no formal code style, if I have an issue with your
 indentation or something, I'll just fix it.
 
 
-[1]: https://jahudka.github.io/dicc/
-[2]: https://github.com/jahudka/dicc/blob/main/core/cli/src/definitions.ts
-[3]: https://github.com/jahudka/dicc/blob/main/core/cli/src/container.ts
-[4]: https://github.com/jahudka/dicc/blob/main/core/cli/src/cli.ts
+[1]: https://cdn77.github.io/dicc/
+[2]: https://github.com/cdn77/dicc/blob/main/core/cli/src/definitions.ts
+[3]: https://github.com/cdn77/dicc/blob/main/core/cli/src/container.ts
+[4]: https://github.com/cdn77/dicc/blob/main/core/cli/src/cli.ts
