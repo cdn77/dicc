@@ -27,7 +27,6 @@ export type ServiceRegistrationInfo = {
   id?: string;
   type: Type;
   aliases: Type[];
-  tags?: boolean;
   object?: boolean;
   explicit?: boolean;
   factory?: ServiceFactoryInfo;
@@ -48,7 +47,6 @@ export type ServiceDecoratorInfo = {
   decorate?: ServiceHookInfo;
   hooks: ServiceHooks;
   scope?: ServiceScope;
-  tags?: boolean;
 };
 
 export type ServiceFactoryInfo = {

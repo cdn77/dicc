@@ -344,43 +344,6 @@ if you try to inject a non-async accessor or iterable for something which _is_
 async.
 
 
-## Tags
-
-Occasionally it might be useful to be able for a service which depends on
-a number of other services to have some information about the dependencies prior
-to accessing them, in order to be able to initialize select dependencies lazily.
-You can use _service tags_ for this. Service tags are key-value pairs; the keys
-must be strings, but the values can be anything. Tags are specified in a service
-definition object, same as scope and hooks:
-
-```typescript
-export const getAuthorsResolver = {
-  factory: GetAuthorsResolver,
-  tags: {
-    'graphql.resolver': { type: 'query', operation: 'getAuthors' },
-  },
-} satisfies ServiceDefinition<GetAuthorsResolver, GraphQLResolverInterface>;
-
-// you can then inject services based on tags;
-// the injected value is a list of [tag value, service accessor] pairs:
-export const schemaRoot = {
-  factory: (di: Container) => new SchemaRoot(di.findByTag('graphql.resolver')),
-} satisfies ServiceDefinition<SchemaRoot>;
-
-// in SchemaRoot:
-export class SchemaRoot {
-  constructor(resolvers: [tagValue: any, serviceAccessor: () => unknown][]) {}
-}
-```
-
-Currently, tags suffer from two downsides: they aren't typed, meaning that the
-return value of `di.findByTag()` is `[any, () => unknown][]`, and that means you
-need to do some type checking when you consume them; and second, they cannot be
-injected automatically - you have to inject the container itself into the
-service factory and manually call its `findByTag()` method. There will probably
-be a better way to do this in the future, this is just a first implementation.
-
-
 ## Service decorators
 
 The service decorator pattern can be used to augment existing service

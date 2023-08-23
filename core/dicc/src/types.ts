@@ -33,7 +33,6 @@ export type ServiceForkHook<T> = (service: T, ...args: any[]) => Promise<T | und
 export type ServiceDefinitionOptions<T = any> = {
   factory: Constructor<T> | Factory<Promise<T | undefined> | T | undefined> | undefined;
   scope?: ServiceScope;
-  tags?: Record<string, any>;
   onCreate?: ServiceHook<T>;
   onFork?: ServiceForkHook<T>;
   onDestroy?: ServiceHook<T>;
@@ -48,7 +47,6 @@ export type ServiceDefinition<T extends Intersect<A>, A = undefined> =
 export type ServiceDecorator<T> = {
   decorate?: <S extends T>(service: S, ...args: any[]) => Promise<S> | S;
   scope?: ServiceScope;
-  tags?: Record<string, any>;
   onCreate?: ServiceHook<T>;
   onFork?: ServiceHook<T>;
   onDestroy?: ServiceHook<T>;
@@ -75,7 +73,6 @@ export type CompiledServiceForkHook<T, Services extends Record<string, any> = {}
 export type CompiledServiceDefinitionOptions<T = any, Services extends Record<string, any> = {}> = {
   aliases?: string[];
   scope?: ServiceScope;
-  tags?: Record<string, any>;
   onFork?: CompiledServiceForkHook<T, Services>;
   onDestroy?: CompiledAsyncServiceHook<T, Services>;
 };

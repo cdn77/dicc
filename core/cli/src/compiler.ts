@@ -132,7 +132,7 @@ export class Compiler {
   }
 
   private compileDefinition(
-    { source, id, path, type, factory, scope = 'global', tags, async, object, hooks, aliases, decorators }: ServiceDefinitionInfo,
+    { source, id, path, type, factory, scope = 'global', async, object, hooks, aliases, decorators }: ServiceDefinitionInfo,
     sources: Map<SourceFile, string>,
     writer: CodeBlockWriter,
   ): void {
@@ -152,18 +152,6 @@ export class Compiler {
 
       if (decoratorMap.scope && decoratorMap.scope !== scope) {
         writer.writeLine(`scope: '${decoratorMap.scope}',`);
-      }
-
-      if (decoratorMap.tags.length) {
-        writer.writeLine(`tags: {`);
-        writer.indent(() => {
-          tags && writer.writeLine(`...${src}.${path}.tags,`);
-
-          for (const decTags of decoratorMap.tags) {
-            writer.writeLine(`...${decTags},`);
-          }
-        });
-        writer.writeLine(`},`);
       }
 
       if (factory) {
@@ -398,7 +386,6 @@ type DecoratorInfo = [source: string, path: string, info: ServiceHookInfo];
 
 type DecoratorMap = {
   scope?: ServiceScope;
-  tags: string[];
   decorate: DecoratorInfo[];
   onCreate: DecoratorInfo[];
   onFork: DecoratorInfo[];
@@ -407,7 +394,6 @@ type DecoratorMap = {
 
 function getDecoratorMap(decorators: ServiceDecoratorInfo[], sources: Map<SourceFile, string>): DecoratorMap {
   const map: DecoratorMap = {
-    tags: [],
     decorate: [],
     onCreate: [],
     onFork: [],
@@ -417,7 +403,6 @@ function getDecoratorMap(decorators: ServiceDecoratorInfo[], sources: Map<Source
   for (const decorator of decorators) {
     const source = sources.get(decorator.source)!;
     decorator.scope && (map.scope = decorator.scope);
-    decorator.tags && map.tags.push(join('.', source, decorator.path, 'tags'));
     decorator.decorate && map.decorate.push([source, decorator.path, decorator.decorate]);
     decorator.hooks.onCreate && map.onCreate.push([source, decorator.path, decorator.hooks.onCreate]);
     decorator.hooks.onFork && map.onFork.push([source, decorator.path, decorator.hooks.onFork]);

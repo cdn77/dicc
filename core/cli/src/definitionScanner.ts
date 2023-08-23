@@ -169,11 +169,10 @@ export class DefinitionScanner {
     const path = ctx.path.replace(/\.$/, '');
     const [factory, object] = this.resolveFactory(type, definition);
     const scope = this.resolveServiceScope(definition);
-    const tags = this.hasTags(definition);
     const hooks = this.resolveServiceHooks(definition);
     const id = definition ? path : undefined;
     const explicit = !!definition;
-    this.registry.register({ source, path, id, type, aliases, object, explicit, factory, scope, tags, hooks });
+    this.registry.register({ source, path, id, type, aliases, object, explicit, factory, scope, hooks });
   }
 
   private registerDecorator(ctx: ScanContext, definition: Expression, nodeType: TypeReferenceNode): void {
@@ -187,9 +186,8 @@ export class DefinitionScanner {
     const type = typeArg.getType();
     const decorate = this.resolveServiceHook(definition, 'decorate');
     const scope = this.resolveServiceScope(definition);
-    const tags = this.hasTags(definition);
     const hooks = this.resolveServiceHooks(definition);
-    this.registry.decorate({ source, path, type, decorate, scope, tags, hooks });
+    this.registry.decorate({ source, path, type, decorate, scope, hooks });
   }
 
   private resolveFactory(type: Type, definition?: Expression): [factory?: ServiceFactoryInfo, object?: boolean] {
@@ -307,10 +305,6 @@ export class DefinitionScanner {
       default:
         throw new Error(`Invalid value for 'scope', must be one of 'global', 'local' or 'private'`);
     }
-  }
-
-  private hasTags(definition?: Expression): boolean {
-    return Node.isObjectLiteralExpression(definition) && !!definition.getProperty('tags');
   }
 }
 
