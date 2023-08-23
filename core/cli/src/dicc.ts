@@ -43,6 +43,7 @@ export class Dicc {
       }
     }
 
+    this.checker.removeExtraneousImplicitRegistrations();
     this.autowiring.checkDependencies();
     this.checker.scanUsages();
     this.compiler.compile();

@@ -21,6 +21,25 @@ export class ServiceRegistry {
     }
   }
 
+  unregister(id: string): void {
+    const definition = this.definitions.get(id);
+
+    if (!definition) {
+      return;
+    }
+
+    this.definitions.delete(id);
+    this.aliases.get(id)?.delete(id);
+
+    for (const type of [definition.type, ...definition.aliases]) {
+      const typeId = this.types.get(type);
+
+      if (typeId !== undefined) {
+        this.aliases.get(typeId)?.delete(id);
+      }
+    }
+  }
+
   decorate(decorator: ServiceDecoratorInfo): void {
     const typeId = this.registerType(decorator.type);
     this.decorators.has(typeId) || this.decorators.set(typeId, []);

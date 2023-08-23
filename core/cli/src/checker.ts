@@ -12,6 +12,14 @@ export class Checker {
     this.registry = registry;
   }
 
+  removeExtraneousImplicitRegistrations(): void {
+    for (const def of this.registry.getDefinitions()) {
+      if (!def.explicit && this.registry.getIdsByType(def.type).filter((id) => id !== def.id)) {
+        this.registry.unregister(def.id);
+      }
+    }
+  }
+
   scanUsages(): void {
     for (const method of ['get', 'find', 'iterate']) {
       for (const call of this.helper.getContainerMethodCalls(method)) {
