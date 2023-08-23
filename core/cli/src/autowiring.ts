@@ -2,6 +2,7 @@ import { ServiceScope } from 'dicc';
 import { Type } from 'ts-morph';
 import { ServiceRegistry } from './serviceRegistry';
 import {
+  CallbackInfo,
   ParameterInfo,
   ServiceDecoratorInfo,
   ServiceDefinitionInfo,
@@ -48,7 +49,7 @@ export class Autowiring {
     const scope = this.resolveScope(definition);
 
     if (definition.factory) {
-      if (this.checkParameters(definition.factory.parameters, `service '${definition.id}'`, scope)) {
+      if (this.checkParameters(definition.factory.parameters, `service '${definition.id}'`, scope, definition.args)) {
         definition.factory.async = true;
       }
 
@@ -119,11 +120,22 @@ export class Autowiring {
     }
   }
 
-  private checkParameters(parameters: ParameterInfo[], target: string, scope: ServiceScope): boolean {
+  private checkParameters(
+    parameters: ParameterInfo[],
+    target: string,
+    scope: ServiceScope,
+    args?: Record<string, CallbackInfo | undefined>,
+  ): boolean {
     let async = false;
 
     for (const parameter of parameters) {
-      if (this.checkParameter(parameter, target, scope)) {
+      if (args && parameter.name in args) {
+        const arg = args[parameter.name];
+
+        if (arg && this.checkParameters(arg.parameters, `argument '${parameter.name}' of ${target}`, scope)) {
+          async = true;
+        }
+      } else if (this.checkParameter(parameter, target, scope)) {
         async = true;
       }
     }

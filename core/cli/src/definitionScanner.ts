@@ -23,7 +23,7 @@ import {
   ParameterInfo,
   ResourceOptions,
   ServiceFactoryInfo,
-  ServiceHookInfo,
+  CallbackInfo,
   ServiceHooks,
   TypeFlag,
 } from './types';
@@ -168,11 +168,12 @@ export class DefinitionScanner {
     const source = ctx.source;
     const path = ctx.path.replace(/\.$/, '');
     const [factory, object] = this.resolveFactory(type, definition);
+    const args = this.resolveServiceArgs(definition);
     const scope = this.resolveServiceScope(definition);
     const hooks = this.resolveServiceHooks(definition);
     const id = definition ? path : undefined;
     const explicit = !!definition;
-    this.registry.register({ source, path, id, type, aliases, object, explicit, factory, scope, hooks });
+    this.registry.register({ source, path, id, type, aliases, object, explicit, factory, args, scope, hooks });
   }
 
   private registerDecorator(ctx: ScanContext, definition: Expression, nodeType: TypeReferenceNode): void {
@@ -214,6 +215,38 @@ export class DefinitionScanner {
     return { parameters, returnType, method, async };
   }
 
+  private resolveServiceArgs(definition?: Expression): Record<string, CallbackInfo | undefined> | undefined {
+    if (!Node.isObjectLiteralExpression(definition)) {
+      return undefined;
+    }
+
+    const argsProp = definition.getProperty('args');
+
+    if (!argsProp) {
+      return undefined;
+    } else if (!Node.isPropertyAssignment(argsProp)) {
+      throw new Error(`Invalid 'args', must be a property assignment`);
+    }
+
+    const argsInit = argsProp.getInitializer();
+
+    if (!Node.isObjectLiteralExpression(argsInit)) {
+      throw new Error(`Invalid 'args', must be an object literal`);
+    }
+
+    const args: Record<string, CallbackInfo | undefined> = {};
+
+    for (const arg of argsInit.getProperties()) {
+      if (!Node.isPropertyAssignment(arg)) {
+        throw new Error(`Invalid 'args' property, 'args' must be a plain object literal`);
+      }
+
+      args[arg.getName()] = this.resolveCallbackInfo(arg);
+    }
+
+    return args;
+  }
+
   private resolveServiceHooks(definition?: Expression): ServiceHooks {
     if (!Node.isObjectLiteralExpression(definition)) {
       return {};
@@ -228,14 +261,25 @@ export class DefinitionScanner {
     return hooks;
   }
 
-  private resolveServiceHook(definition: ObjectLiteralExpression, hook: string): ServiceHookInfo | undefined {
-    const signature = this.resolveHookSignature(hook, definition.getProperty(hook));
+  private resolveServiceHook(definition: ObjectLiteralExpression, hook: string): CallbackInfo | undefined {
+    const hookProp = definition.getProperty(hook);
+    const info = this.resolveCallbackInfo(hookProp, 1);
+
+    if (!info && hookProp) {
+      throw new Error(`Invalid '${hook}' hook, must be a method declaration or property assignment`);
+    }
+
+    return info;
+  }
+
+  private resolveCallbackInfo(node?: Node, skip: number = 0): CallbackInfo | undefined {
+    const signature = this.resolveCallSignature(node);
 
     if (!signature) {
       return undefined;
     }
 
-    const [, ...parameters] = signature.getParameters();
+    const parameters = signature.getParameters().slice(skip);
     const [, flags] = this.helper.resolveType(signature.getReturnType());
 
     return {
@@ -244,22 +288,18 @@ export class DefinitionScanner {
     };
   }
 
-  private resolveHookSignature(type: string, hook?: Node): Signature | undefined {
-    if (Node.isMethodDeclaration(hook)) {
-      return hook.getSignature();
-    } else if (Node.isPropertyAssignment(hook)) {
-      const hookValue = hook.getInitializer();
+  private resolveCallSignature(node?: Node): Signature | undefined {
+    if (Node.isMethodDeclaration(node)) {
+      return node.getSignature();
+    } else if (Node.isPropertyAssignment(node)) {
+      const value = node.getInitializer();
 
-      if (Node.isFunctionExpression(hookValue) || Node.isArrowFunction(hookValue)) {
-        return hookValue.getSignature();
+      if (Node.isFunctionExpression(value) || Node.isArrowFunction(value)) {
+        return value.getSignature();
       }
     }
 
-    if (!hook) {
-      return undefined;
-    }
-
-    throw new Error(`Invalid '${type}' hook, must be a method declaration or property assignment`);
+    return undefined;
   }
 
   private resolveParameter(symbol: Symbol): ParameterInfo {

@@ -30,6 +30,7 @@ export type ServiceRegistrationInfo = {
   object?: boolean;
   explicit?: boolean;
   factory?: ServiceFactoryInfo;
+  args?: Record<string, CallbackInfo | undefined>;
   hooks: ServiceHooks;
   scope?: ServiceScope;
 };
@@ -44,7 +45,7 @@ export type ServiceDecoratorInfo = {
   source: SourceFile;
   path: string;
   type: Type;
-  decorate?: ServiceHookInfo;
+  decorate?: CallbackInfo;
   hooks: ServiceHooks;
   scope?: ServiceScope;
 };
@@ -57,12 +58,12 @@ export type ServiceFactoryInfo = {
 };
 
 export type ServiceHooks = {
-  onCreate?: ServiceHookInfo;
-  onFork?: ServiceHookInfo;
-  onDestroy?: ServiceHookInfo;
+  onCreate?: CallbackInfo;
+  onFork?: CallbackInfo;
+  onDestroy?: CallbackInfo;
 };
 
-export type ServiceHookInfo = {
+export type CallbackInfo = {
   parameters: ParameterInfo[];
   async?: boolean;
 };

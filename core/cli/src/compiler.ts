@@ -8,7 +8,7 @@ import {
   ParameterInfo,
   ServiceDecoratorInfo,
   ServiceDefinitionInfo,
-  ServiceHookInfo,
+  CallbackInfo,
   TypeFlag,
 } from './types';
 
@@ -123,7 +123,7 @@ export class Compiler {
 
       writer.indent(() => {
         for (const definition of definitions) {
-          this.compileDefinition(definition, sources, writer);
+          this.compileDefinition(writer, definition, sources);
         }
       });
 
@@ -132,9 +132,9 @@ export class Compiler {
   }
 
   private compileDefinition(
-    { source, id, path, type, factory, scope = 'global', async, object, hooks, aliases, decorators }: ServiceDefinitionInfo,
-    sources: Map<SourceFile, string>,
     writer: CodeBlockWriter,
+    { source, id, path, type, factory, args, scope = 'global', async, object, hooks, aliases, decorators }: ServiceDefinitionInfo,
+    sources: Map<SourceFile, string>,
   ): void {
     const decoratorMap = getDecoratorMap(decorators, sources);
     const src = sources.get(source)!;
@@ -159,6 +159,7 @@ export class Compiler {
           writer.writeLine(`factory: ${join('.', src, path, factory.method)},`);
         } else if (!object || factory.method === 'constructor' || factory.parameters.length || decoratorMap.decorate.length) {
           this.compileFactory(
+            writer,
             src,
             path,
             factory.async,
@@ -166,11 +167,12 @@ export class Compiler {
             object,
             factory.returnType.isNullable(),
             factory.parameters,
+            args,
             decoratorMap.decorate,
-            writer,
           );
-        } // else definition is an object with a factory function with zero parameters and no decorators,
-          // so it is already included in the compiled definition courtesy of object spread
+        }
+        // else definition is an object with a factory function with zero parameters and no decorators,
+        // so it is already included in the compiled definition courtesy of object spread
       } else {
         writer.writeLine(`factory: undefined,`);
       }
@@ -179,7 +181,7 @@ export class Compiler {
         const info = hooks[hook];
 
         if (info?.parameters.length || decoratorMap[hook].length) {
-          this.compileHook(src, path, hook, info, decoratorMap[hook], writer);
+          this.compileHook(writer, src, path, hook, info, decoratorMap[hook]);
         }
       }
     });
@@ -188,6 +190,7 @@ export class Compiler {
   }
 
   private compileFactory(
+    writer: CodeBlockWriter,
     source: string,
     path: string,
     async: boolean | undefined,
@@ -195,10 +198,10 @@ export class Compiler {
     object: boolean | undefined,
     optional: boolean,
     parameters: ParameterInfo[],
+    args: Record<string, CallbackInfo | undefined> | undefined,
     decorators: DecoratorInfo[],
-    writer: CodeBlockWriter,
   ): void {
-    const params = this.compileParameters(parameters);
+    const params = this.compileParameters(parameters, args && this.compileArgs(writer, source, path, args));
     const decParams = decorators.map(([,, info]) => this.compileParameters(info.parameters));
     const inject = params.length > 0 || decParams.some((p) => p.length > 0);
 
@@ -208,6 +211,7 @@ export class Compiler {
 
     const writeFactoryCall = () => {
       this.compileCall(
+        writer,
         join(
           ' ',
           method === 'constructor' && 'new',
@@ -215,7 +219,6 @@ export class Compiler {
           join('.', source, path, object && 'factory', method !== 'constructor' && method),
         ),
         params,
-        writer,
       );
     };
 
@@ -242,7 +245,7 @@ export class Compiler {
         const last = i + 1 >= decorators.length;
         writer.conditionalWrite(optional || (i > 0 ? decParams[i - 1] : params).length > 0 || decParams[i].length > 0, '\n');
         writer.write(last ? 'return ' : 'service = ');
-        this.compileCall(join(' ', info.async && !last && 'await', join('.', source, path, 'decorate')), ['service', ...decParams[i]], writer);
+        this.compileCall(writer, join(' ', info.async && !last && 'await', join('.', source, path, 'decorate')), ['service', ...decParams[i]]);
         writer.write(';\n');
       }
     });
@@ -251,12 +254,12 @@ export class Compiler {
   }
 
   private compileHook(
+    writer: CodeBlockWriter,
     source: string,
     path: string,
     hook: string,
-    info: ServiceHookInfo | undefined,
+    info: CallbackInfo | undefined,
     decorators: DecoratorInfo[],
-    writer: CodeBlockWriter,
   ): void {
     const params = this.compileParameters(info?.parameters ?? []);
     const decParams = decorators.map(([,, info]) => this.compileParameters(info.parameters));
@@ -270,7 +273,7 @@ export class Compiler {
     writer.write(') => ');
 
     if (!decorators.length) {
-      this.compileCall(join('.', source, path, hook), ['service', ...params], writer);
+      this.compileCall(writer, join('.', source, path, hook), ['service', ...params]);
       writer.write(',\n');
       return;
     }
@@ -286,13 +289,13 @@ export class Compiler {
           service = 'fork ?? service';
         }
 
-        this.compileCall(join(' ', info?.async && 'await', join('.', source, path, hook)), ['service', ...params], writer);
+        this.compileCall(writer, join(' ', info?.async && 'await', join('.', source, path, hook)), ['service', ...params]);
         writer.write(';\n');
       }
 
       for (const [i, [source, path, info]] of decorators.entries()) {
         writer.conditionalWrite((i > 0 ? decParams[i - 1] : params).length > 0 || decParams[i].length > 0, '\n');
-        this.compileCall(join(' ', info.async && 'await', join('.', source, path, hook)), [service, ...decParams[i]], writer);
+        this.compileCall(writer, join(' ', info.async && 'await', join('.', source, path, hook)), [service, ...decParams[i]]);
         writer.write(';\n');
       }
 
@@ -305,7 +308,7 @@ export class Compiler {
     writer.write('},\n');
   }
 
-  private compileCall(expression: string, params: string[], writer: CodeBlockWriter): void {
+  private compileCall(writer: CodeBlockWriter, expression: string, params: string[]): void {
     writer.write(expression);
     writer.write('(');
 
@@ -322,12 +325,25 @@ export class Compiler {
     writer.write(')');
   }
 
-  private compileParameters(parameters: ParameterInfo[]): string[] {
+  private compileArgs(writer: CodeBlockWriter, source: string, path: string, args: Record<string, CallbackInfo | undefined>): Record<string, string> {
+    return Object.fromEntries(Object.entries(args).map(([name, info]) => {
+      if (info) {
+        const params = this.compileParameters(info.parameters);
+        const tmp = new CodeBlockWriter(writer.getOptions());
+        this.compileCall(tmp, join(' ', info.async && 'await', join('.', source, path, 'args', name)), params)
+        return [name, tmp.toString()];
+      } else {
+        return [name, join('.', source, path, 'args', name)];
+      }
+    }));
+  }
+
+  private compileParameters(parameters: ParameterInfo[], args?: Record<string, string>): string[] {
     const stmts: string[] = [];
     const undefs: string[] = [];
 
     for (const param of parameters) {
-      const stmt = this.compileParameter(param);
+      const stmt = args && param.name in args ? args[param.name] : this.compileParameter(param);
 
       if (stmt === undefined) {
         undefs.push(`undefined`);
@@ -382,7 +398,7 @@ export class Compiler {
   }
 }
 
-type DecoratorInfo = [source: string, path: string, info: ServiceHookInfo];
+type DecoratorInfo = [source: string, path: string, info: CallbackInfo];
 
 type DecoratorMap = {
   scope?: ServiceScope;

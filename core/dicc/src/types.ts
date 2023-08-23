@@ -32,6 +32,7 @@ export type ServiceForkHook<T> = (service: T, ...args: any[]) => Promise<T | und
 
 export type ServiceDefinitionOptions<T = any> = {
   factory: Constructor<T> | Factory<Promise<T | undefined> | T | undefined> | undefined;
+  args?: Record<string, any>;
   scope?: ServiceScope;
   onCreate?: ServiceHook<T>;
   onFork?: ServiceForkHook<T>;

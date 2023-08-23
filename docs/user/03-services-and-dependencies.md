@@ -86,6 +86,20 @@ export const alsoSeven = {
   factory: undefined,
   onCreate() { console.log('Seven registered in the container!') },
 } satisfies ServiceDefinition<ServiceSeven>;
+
+// an explicit service definition can override factory arguments by name;
+// this is useful if you just need to override one or two arguments and
+// avoid repeating the full factory signature:
+export const overrideArgs = {
+  factory: ServiceWithSomeArgs,
+  args: {
+    // you can inject static values,
+    staticValue: 3.1415926535,
+    // or you can specify a callback which will be invoked inside
+    // the service factory and its return value will be used:
+    injectedValue: (other: OtherService) => other.getValue(),
+  },
+} satisfies ServiceDefinition<ServiceWithSomeArgs>;
 ```
 
 A definition file can re-export definitions from other files:
