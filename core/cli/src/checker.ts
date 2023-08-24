@@ -14,7 +14,7 @@ export class Checker {
 
   removeExtraneousImplicitRegistrations(): void {
     for (const def of this.registry.getDefinitions()) {
-      if (!def.explicit && this.registry.getIdsByType(def.type).filter((id) => id !== def.id)) {
+      if (!def.explicit && this.registry.getIdsByType(def.type).filter((id) => id !== def.id).length) {
         this.registry.unregister(def.id);
       }
     }
