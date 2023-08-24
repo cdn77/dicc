@@ -1,20 +1,20 @@
+import { Logger } from '@debugr/core';
 import { Node } from 'ts-morph';
 import { ServiceRegistry } from './serviceRegistry';
 import { TypeHelper } from './typeHelper';
 import { TypeFlag } from './types';
 
 export class Checker {
-  private readonly helper: TypeHelper;
-  private readonly registry: ServiceRegistry;
-
-  constructor(helper: TypeHelper, registry: ServiceRegistry) {
-    this.helper = helper;
-    this.registry = registry;
-  }
+  constructor(
+    private readonly helper: TypeHelper,
+    private readonly registry: ServiceRegistry,
+    private readonly logger: Logger,
+  ) {}
 
   removeExtraneousImplicitRegistrations(): void {
     for (const def of this.registry.getDefinitions()) {
       if (!def.explicit && this.registry.getIdsByType(def.type).filter((id) => id !== def.id).length) {
+        this.logger.debug(`Unregistered extraneous service '${def.path}'`);
         this.registry.unregister(def.id);
       }
     }
@@ -28,7 +28,7 @@ export class Checker {
         if (Node.isStringLiteral(id) && !this.registry.has(id.getLiteralValue())) {
           const sf = id.getSourceFile();
           const ln = id.getStartLineNumber();
-          console.log(`Warning: unknown service '${id.getLiteralValue()}' in call to Container.${method}() in ${sf.getFilePath()} on line ${ln}`);
+          this.logger.warning(`Unknown service '${id.getLiteralValue()}' in call to Container.${method}() in '${sf.getFilePath()}' on line ${ln}`);
         }
       }
     }
@@ -61,7 +61,7 @@ export class Checker {
 
     for (const id of dynamic) {
       if (!registrations.has(id) && !injectors.has(id)) {
-        console.log(`Warning: no Container.register() call found for dynamic service '${id}'`);
+        this.logger.warning(`No Container.register() call found for dynamic service '${id}'`);
       }
     }
   }

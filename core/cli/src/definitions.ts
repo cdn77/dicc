@@ -1,5 +1,8 @@
+import { ConsoleHandler } from '@debugr/console';
+import { Logger, Plugin } from '@debugr/core';
 import { ServiceDefinition } from 'dicc';
 import { IndentationText, NewLineKind, Project, QuoteKind } from 'ts-morph';
+import { Argv } from './argv';
 import { ConfigLoader } from './configLoader';
 import { Dicc } from './dicc';
 import { DiccConfig } from './types';
@@ -13,6 +16,18 @@ export { DefinitionScanner } from './definitionScanner';
 export { ServiceRegistry } from './serviceRegistry';
 export { SourceFiles } from './sourceFiles';
 export { TypeHelper } from './typeHelper';
+
+export namespace debug {
+  export const logger = ((plugins: Plugin[]) => new Logger({
+    globalContext: {},
+    plugins,
+  })) satisfies ServiceDefinition<Logger>;
+
+  export const console = {
+    factory: (argv: Argv) => new ConsoleHandler({ threshold: argv.logLevel, timestamp: false }),
+    scope: 'private',
+  } satisfies ServiceDefinition<Plugin>;
+}
 
 export const config = (
   async (loader: ConfigLoader) => loader.load()

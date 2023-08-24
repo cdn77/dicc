@@ -1,3 +1,4 @@
+import { Logger } from '@debugr/core';
 import { ServiceScope } from 'dicc';
 import { Type } from 'ts-morph';
 import { ServiceRegistry } from './serviceRegistry';
@@ -11,14 +12,14 @@ import {
 } from './types';
 
 export class Autowiring {
-  private readonly registry: ServiceRegistry;
   private readonly visitedServices: Set<ServiceDefinitionInfo> = new Set();
   private readonly visitedDecorators: Map<ServiceDecoratorInfo, Set<ServiceScope>> = new Map();
   private readonly resolving: string[] = [];
 
-  constructor(registry: ServiceRegistry) {
-    this.registry = registry;
-  }
+  constructor(
+    private readonly registry: ServiceRegistry,
+    private readonly logger: Logger,
+  ) {}
 
   checkDependencies(): void {
     this.registry.applyDecorators();
@@ -41,30 +42,42 @@ export class Autowiring {
     return this.registry.getByType(type).some((def) => def.async);
   }
 
-  private checkServiceDependencies(definition: ServiceDefinitionInfo): void {
-    if (!this.visitService(definition)) {
+  private checkServiceDependencies(info: ServiceDefinitionInfo): void {
+    if (!this.visitService(info)) {
       return;
     }
 
-    const scope = this.resolveScope(definition);
+    this.logger.debug(`Checking '${info.path}' dependencies...`);
+    const scope = this.resolveScope(info);
 
-    if (definition.factory) {
-      if (this.checkParameters(definition.factory.parameters, `service '${definition.id}'`, scope, definition.args)) {
-        definition.factory.async = true;
+    if (info.factory) {
+      if (this.checkParameters(info.factory.parameters, `service '${info.path}'`, scope, info.args) && !info.factory.async) {
+        this.logger.trace(`Marking '${info.path}' factory as async because one or more parameters need to be awaited`);
+        info.factory.async = true;
       }
 
-      if (definition.factory.async) {
-        definition.async = true;
+      if (info.factory.async && !info.async) {
+        this.logger.trace(`Marking '${info.path}' as async because factory is async`);
+        info.async = true;
       }
     }
 
-    if (this.checkHooks(definition.hooks, `service '${definition.id}'`, scope)) {
-      definition.async = true;
+    if (this.checkHooks(info.hooks, `service '${info.path}'`, scope) && !info.async) {
+      this.logger.trace(`Marking '${info.path}' as async because its 'onCreate' hook is async`);
+      info.async = true;
     }
 
-    const flags = this.checkDecorators(definition.decorators, scope);
-    flags.asyncDecorate && definition.factory && (definition.factory.async = true);
-    flags.asyncDecorate || flags.asyncOnCreate && (definition.async = true);
+    const flags = this.checkDecorators(info.decorators, scope);
+
+    if (flags.asyncDecorate && info.factory && !info.factory.async) {
+      this.logger.trace(`Marking '${info.path}' factory as async because it has an async decorator`);
+      info.factory.async = true;
+    }
+
+    if ((flags.asyncDecorate || flags.asyncOnCreate) && !info.async) {
+      this.logger.trace(`Marking '${info.path}' as async because it has an async decorator`);
+      info.async = true;
+    }
   }
 
   private resolveScope(definition: ServiceDefinitionInfo): ServiceScope {
@@ -80,7 +93,10 @@ export class Autowiring {
         continue;
       }
 
-      if (this.checkParameters(info.parameters, `'${hook}' hook of ${target}`, scope)) {
+      this.logger.debug(`Checking ${target} '${hook}' hook...`);
+
+      if (this.checkParameters(info.parameters, `'${hook}' hook of ${target}`, scope) && !info.async) {
+        this.logger.trace(`Marking '${hook}' hook of ${target} as async because one or more parameters need to be awaited`);
         info.async = true;
       }
     }
@@ -107,6 +123,7 @@ export class Autowiring {
 
     if (decorator.decorate) {
       if (this.checkParameters(decorator.decorate.parameters, `decorator '${decorator.path}'`, scope)) {
+        this.logger.trace(`Marking decorator '${decorator.path}' as async because one or more parameters need to be awaited`);
         decorator.decorate.async = true;
       }
 
@@ -116,6 +133,7 @@ export class Autowiring {
     }
 
     if (this.checkHooks(decorator.hooks, `decorator '${decorator.path}'`, scope)) {
+      this.logger.trace(`Marking decorator '${decorator.path}' as async because its 'onCreate' hook is async`);
       flags.asyncOnCreate = true;
     }
   }
@@ -133,9 +151,11 @@ export class Autowiring {
         const arg = args[parameter.name];
 
         if (arg && this.checkParameters(arg.parameters, `argument '${parameter.name}' of ${target}`, scope)) {
+          this.logger.trace(`Parameter '${parameter.name}' of ${target} is async`);
           async = true;
         }
       } else if (this.checkParameter(parameter, target, scope)) {
+        this.logger.trace(`Parameter '${parameter.name}' of ${target} is async`);
         async = true;
       }
     }
@@ -152,6 +172,7 @@ export class Autowiring {
 
     if (!candidates || !candidates.length) {
       if (parameter.flags & TypeFlag.Optional) {
+        this.logger.trace(`Skipping parameter '${parameter.type}' of ${target}: unknown parameter type`);
         return false;
       }
 

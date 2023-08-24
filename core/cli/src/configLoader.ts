@@ -4,16 +4,53 @@ import { parse } from 'yaml';
 import { Argv } from './argv';
 import { DiccConfig, diccConfigSchema } from './types';
 
+const defaultConfigFiles = [
+  'dicc.yaml',
+  'dicc.yml',
+  '.dicc.yaml',
+  '.dicc.yml',
+];
+
 export class ConfigLoader {
-  private readonly configPath: string;
+  private readonly configFile?: string;
 
   constructor(argv: Argv) {
-    this.configPath = resolve(argv.configPath);
+    this.configFile = argv.configFile;
   }
 
   async load(): Promise<DiccConfig> {
-    const data = await readFile(this.configPath, 'utf-8');
-    const config = parse(data);
-    return diccConfigSchema.parse(config);
+    const [file, data] = await this.loadConfigFile();
+
+    try {
+      const config = parse(data);
+      return diccConfigSchema.parse(config);
+    } catch (e: any) {
+      throw new Error(`Error in config file '${file}': ${e.message}`);
+    }
+  }
+
+  private async loadConfigFile(): Promise<[file: string, config: string]> {
+    const candidates = this.configFile === undefined ? defaultConfigFiles : [this.configFile];
+
+    for (const file of candidates) {
+      const fullPath = resolve(file);
+
+      try {
+        const config = await readFile(fullPath, 'utf-8');
+        return [fullPath, config];
+      } catch (e: any) {
+        if (e.code === 'ENOENT') {
+          continue;
+        }
+
+        throw e;
+      }
+    }
+
+    throw new Error(
+      this.configFile === undefined
+        ? 'Config file not specified and none of the default config files exists'
+        : `Config file '${this.configFile}' doesn't exist`,
+    );
   }
 }

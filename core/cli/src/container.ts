@@ -3,6 +3,8 @@ import * as defs0 from './definitions';
 
 export interface Services {
   'config': Promise<ServiceType<typeof defs0.config>>;
+  'debug.console': ServiceType<typeof defs0.debug.console>;
+  'debug.logger': ServiceType<typeof defs0.debug.logger>;
   'dicc': Promise<ServiceType<typeof defs0.dicc>>;
   'project': Promise<ServiceType<typeof defs0.project>>;
   '#Argv.0': defs0.Argv;
@@ -13,6 +15,8 @@ export interface Services {
   '#DefinitionScanner.0': Promise<defs0.DefinitionScanner>;
   '#Dicc.0': Promise<ServiceType<typeof defs0.dicc>>;
   '#DiccConfig.0': Promise<ServiceType<typeof defs0.config>>;
+  '#Logger.0': ServiceType<typeof defs0.debug.logger>;
+  '#Plugin.0': ServiceType<typeof defs0.debug.console>;
   '#Project.0': Promise<ServiceType<typeof defs0.project>>;
   '#ServiceRegistry.0': defs0.ServiceRegistry;
   '#SourceFiles.0': Promise<defs0.SourceFiles>;
@@ -24,6 +28,15 @@ export const container = new Container<Services>({
     aliases: ['#DiccConfig.0'],
     async: true,
     factory: async (di) => defs0.config(di.get('#ConfigLoader.0')),
+  },
+  'debug.console': {
+    ...defs0.debug.console,
+    aliases: ['#Plugin.0'],
+    factory: (di) => defs0.debug.console.factory(di.get('#Argv.0')),
+  },
+  'debug.logger': {
+    aliases: ['#Logger.0'],
+    factory: (di) => defs0.debug.logger(di.find('#Plugin.0')),
   },
   'dicc': {
     aliases: ['#Dicc.0'],
@@ -47,13 +60,17 @@ export const container = new Container<Services>({
     factory: () => new defs0.Argv(),
   },
   '#Autowiring.0': {
-    factory: (di) => new defs0.Autowiring(di.get('#ServiceRegistry.0')),
+    factory: (di) => new defs0.Autowiring(
+      di.get('#ServiceRegistry.0'),
+      di.get('#Logger.0'),
+    ),
   },
   '#Checker.0': {
     async: true,
     factory: async (di) => new defs0.Checker(
       await di.get('#TypeHelper.0'),
       di.get('#ServiceRegistry.0'),
+      di.get('#Logger.0'),
     ),
   },
   '#Compiler.0': {
@@ -73,6 +90,7 @@ export const container = new Container<Services>({
     factory: async (di) => new defs0.DefinitionScanner(
       di.get('#ServiceRegistry.0'),
       await di.get('#TypeHelper.0'),
+      di.get('#Logger.0'),
     ),
   },
   '#ServiceRegistry.0': {

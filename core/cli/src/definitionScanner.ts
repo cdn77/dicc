@@ -1,3 +1,4 @@
+import { Logger } from '@debugr/core';
 import { ServiceScope } from 'dicc';
 import {
   ClassDeclaration,
@@ -17,6 +18,7 @@ import {
   TypeReferenceNode,
   VariableDeclaration,
 } from 'ts-morph';
+import { relative } from 'path';
 import { ServiceRegistry } from './serviceRegistry';
 import { TypeHelper } from './typeHelper';
 import {
@@ -29,22 +31,29 @@ import {
 } from './types';
 
 export class DefinitionScanner {
-  private readonly registry: ServiceRegistry;
-  private readonly helper: TypeHelper;
-
-  constructor(registry: ServiceRegistry, helper: TypeHelper) {
-    this.registry = registry;
-    this.helper = helper;
-  }
+  constructor(
+    private readonly registry: ServiceRegistry,
+    private readonly helper: TypeHelper,
+    private readonly logger: Logger,
+  ) {}
 
   scanDefinitions(source: SourceFile, options: ResourceOptions = {}): void {
     const exclude = createExcludeRegex(options.exclude);
-    const ctx: ScanContext = { source, exclude, path: '' };
+    const ctx: ScanContext = {
+      source,
+      exclude,
+      path: '',
+      describe() {
+        return `'${this.path.replace(/\.$/, '')}' found in '${relative(process.cwd(), this.source.getFilePath())}'`;
+      },
+    };
+
     this.scanNode(ctx, source);
   }
 
   private scanNode(ctx: ScanContext, node?: Node): void {
     if (ctx.exclude?.test(ctx.path)) {
+      this.logger.trace(`Ignored ${ctx.describe()}`);
       return;
     }
 
@@ -173,6 +182,7 @@ export class DefinitionScanner {
     const hooks = this.resolveServiceHooks(definition);
     const id = definition ? path : undefined;
     const explicit = !!definition;
+    this.logger.debug(`Register service ${ctx.describe()}`);
     this.registry.register({ source, path, id, type, aliases, object, explicit, factory, args, scope, hooks });
   }
 
@@ -188,6 +198,7 @@ export class DefinitionScanner {
     const decorate = this.resolveServiceHook(definition, 'decorate');
     const scope = this.resolveServiceScope(definition);
     const hooks = this.resolveServiceHooks(definition);
+    this.logger.debug(`Register decorator ${ctx.describe()}`);
     this.registry.decorate({ source, path, type, decorate, scope, hooks });
   }
 
@@ -352,6 +363,7 @@ type ScanContext = {
   source: SourceFile;
   path: string;
   exclude?: RegExp;
+  describe(): string;
 };
 
 function createExcludeRegex(patterns?: string[]): RegExp | undefined {
