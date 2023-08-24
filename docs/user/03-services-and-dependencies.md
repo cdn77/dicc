@@ -39,6 +39,13 @@ When you need to do some more complex logic to create a service instance, or
 when you want to provide other service configuration such as a scope or one or
 more service hooks, you can export a _service definition_ from a resource file.
 
+> An explicit service definition overrides a simple class or interface export of
+> the same type, so you can simply `export * from '../services'` at the start of
+> a resource file, and then follow that with explicit definitions for services
+> which need some tweaks - such services won't be registered twice. If you do
+> need to register a given service multiple times, you must provide explicit
+> definitions for each registration.
+
 As briefly mentioned before, a service definition is a special `satisfies`
 expression. This is what it looks like:
 

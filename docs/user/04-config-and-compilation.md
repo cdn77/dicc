@@ -45,9 +45,20 @@ resources:
 
 Whenever you change service definitions you must re-run the compiler in order
 to get a matching container. This is done using the `dicc` executable shipped
-with DICC. The executable takes a single optional argument, which is the path
-to the DICC config file; by default, it is assumed to be `dicc.yaml` in the
-current working directory.
+with DICC. The executable has the following options:
+
+```
+dicc [-v|--verbose] [-c <file>|--config <file>]
+
+ -v, --verbose
+   Toggle verbose output. Can be specified multiple times to make output even
+   more verbose.
+ -c <file>, --config <file>
+   Load the specified config file, instead of looking for one of the default
+   config files. Config files are always resolved from the current working
+   directory; the default files are 'dicc.yaml', 'dicc.yml', '.dicc.yaml', and
+   '.dicc.yml', in this order.
+```
 
 The compiled container should be a deterministic product of your definitions,
 so you can safely exclude it from version control. But versioning it probably
