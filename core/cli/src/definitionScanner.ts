@@ -1,5 +1,6 @@
 import { Logger } from '@debugr/core';
 import { ServiceScope } from 'dicc';
+import { relative } from 'path';
 import {
   ClassDeclaration,
   ExportedDeclarations,
@@ -18,14 +19,13 @@ import {
   TypeReferenceNode,
   VariableDeclaration,
 } from 'ts-morph';
-import { relative } from 'path';
 import { ServiceRegistry } from './serviceRegistry';
 import { TypeHelper } from './typeHelper';
 import {
+  CallbackInfo,
   ParameterInfo,
   ResourceOptions,
   ServiceFactoryInfo,
-  CallbackInfo,
   ServiceHooks,
   TypeFlag,
 } from './types';
@@ -180,10 +180,11 @@ export class DefinitionScanner {
     const args = this.resolveServiceArgs(definition);
     const scope = this.resolveServiceScope(definition);
     const hooks = this.resolveServiceHooks(definition);
-    const id = definition ? path : undefined;
+    const anonymous = this.resolveAnonymousFlag(definition);
+    const id = definition && !anonymous ? path : undefined;
     const explicit = !!definition;
     this.logger.debug(`Register service ${ctx.describe()}`);
-    this.registry.register({ source, path, id, type, aliases, object, explicit, factory, args, scope, hooks });
+    this.registry.register({ source, path, id, type, aliases, object, explicit, anonymous, factory, args, scope, hooks });
   }
 
   private registerDecorator(ctx: ScanContext, definition: Expression, nodeType: TypeReferenceNode): void {
@@ -328,22 +329,12 @@ export class DefinitionScanner {
   }
 
   private resolveServiceScope(definition?: Expression): ServiceScope | undefined {
-    if (!Node.isObjectLiteralExpression(definition)) {
+    const initializer = this.resolvePropertyInitializer(definition, 'scope');
+
+    if (!initializer) {
       return undefined;
-    }
-
-    const scopeProp = definition.getProperty('scope');
-
-    if (!scopeProp) {
-      return undefined;
-    } else if (!Node.isPropertyAssignment(scopeProp)) {
-      throw new Error(`The 'scope' option must be a simple property assignment`);
-    }
-
-    const initializer = scopeProp.getInitializer();
-
-    if (!Node.isStringLiteral(initializer)) {
-      throw new Error(`The 'scope' option must be initialised with a string literal`);
+    } else if (!Node.isStringLiteral(initializer)) {
+      throw new Error(`The 'scope' option must be a string literal`);
     }
 
     const scope = initializer.getLiteralValue();
@@ -356,6 +347,34 @@ export class DefinitionScanner {
       default:
         throw new Error(`Invalid value for 'scope', must be one of 'global', 'local' or 'private'`);
     }
+  }
+
+  private resolveAnonymousFlag(definition?: Expression): boolean | undefined {
+    const initializer = this.resolvePropertyInitializer(definition, 'anonymous');
+
+    if (!initializer) {
+      return undefined;
+    } else if (Node.isTrueLiteral(initializer) || Node.isFalseLiteral(initializer)) {
+      return initializer.getLiteralValue();
+    } else {
+      throw new Error(`The 'anonymous' option must be a boolean literal`);
+    }
+  }
+
+  private resolvePropertyInitializer(definition: Expression | undefined, name: string): Node | undefined {
+    if (!Node.isObjectLiteralExpression(definition)) {
+      return undefined;
+    }
+
+    const prop = definition.getProperty(name);
+
+    if (!prop) {
+      return undefined;
+    } else if (!Node.isPropertyAssignment(prop)) {
+      throw new Error(`The '${name}' option must be a simple property assignment`);
+    }
+
+    return prop.getInitializerOrThrow(`Missing initializer for option '${name}'`);
   }
 }
 

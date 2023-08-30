@@ -2,16 +2,14 @@ import { Container, ServiceType } from 'dicc';
 import * as defs0 from './definitions';
 
 export interface Services {
-  'config': Promise<ServiceType<typeof defs0.config>>;
-  'debug.console': ServiceType<typeof defs0.debug.console>;
   'debug.logger': ServiceType<typeof defs0.debug.logger>;
   'dicc': Promise<ServiceType<typeof defs0.dicc>>;
-  'project': Promise<ServiceType<typeof defs0.project>>;
   '#Argv.0': defs0.Argv;
   '#Autowiring.0': defs0.Autowiring;
   '#Checker.0': Promise<defs0.Checker>;
   '#Compiler.0': Promise<defs0.Compiler>;
   '#ConfigLoader.0': defs0.ConfigLoader;
+  '#ConsoleHandler.0': ServiceType<typeof defs0.debug.console>;
   '#DefinitionScanner.0': Promise<defs0.DefinitionScanner>;
   '#Dicc.0': Promise<ServiceType<typeof defs0.dicc>>;
   '#DiccConfig.0': Promise<ServiceType<typeof defs0.config>>;
@@ -24,19 +22,10 @@ export interface Services {
 }
 
 export const container = new Container<Services>({
-  'config': {
-    aliases: ['#DiccConfig.0'],
-    async: true,
-    factory: async (di) => defs0.config(di.get('#ConfigLoader.0')),
-  },
-  'debug.console': {
-    ...defs0.debug.console,
-    aliases: ['#Plugin.0'],
-    factory: (di) => defs0.debug.console.factory(di.get('#Argv.0')),
-  },
   'debug.logger': {
+    ...defs0.debug.logger,
     aliases: ['#Logger.0'],
-    factory: (di) => defs0.debug.logger(di.find('#Plugin.0')),
+    factory: (di) => defs0.debug.logger.factory(di.find('#Plugin.0')),
   },
   'dicc': {
     aliases: ['#Dicc.0'],
@@ -50,11 +39,6 @@ export const container = new Container<Services>({
       await di.get('#Checker.0'),
       await di.get('#DiccConfig.0'),
     ),
-  },
-  'project': {
-    aliases: ['#Project.0'],
-    async: true,
-    factory: async (di) => defs0.project(await di.get('#DiccConfig.0')),
   },
   '#Argv.0': {
     factory: () => new defs0.Argv(),
@@ -85,6 +69,11 @@ export const container = new Container<Services>({
   '#ConfigLoader.0': {
     factory: (di) => new defs0.ConfigLoader(di.get('#Argv.0')),
   },
+  '#ConsoleHandler.0': {
+    ...defs0.debug.console,
+    aliases: ['#Plugin.0'],
+    factory: (di) => defs0.debug.console.factory(di.get('#Argv.0')),
+  },
   '#DefinitionScanner.0': {
     async: true,
     factory: async (di) => new defs0.DefinitionScanner(
@@ -92,6 +81,16 @@ export const container = new Container<Services>({
       await di.get('#TypeHelper.0'),
       di.get('#Logger.0'),
     ),
+  },
+  '#DiccConfig.0': {
+    ...defs0.config,
+    async: true,
+    factory: async (di) => defs0.config.factory(di.get('#ConfigLoader.0')),
+  },
+  '#Project.0': {
+    ...defs0.project,
+    async: true,
+    factory: async (di) => defs0.project.factory(await di.get('#DiccConfig.0')),
   },
   '#ServiceRegistry.0': {
     factory: () => new defs0.ServiceRegistry(),

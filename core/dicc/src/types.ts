@@ -34,6 +34,7 @@ export type ServiceDefinitionOptions<T = any> = {
   factory: Constructor<T> | Factory<Promise<T | undefined> | T | undefined> | undefined;
   args?: Record<string, any>;
   scope?: ServiceScope;
+  anonymous?: boolean;
   onCreate?: ServiceHook<T>;
   onFork?: ServiceForkHook<T>;
   onDestroy?: ServiceHook<T>;

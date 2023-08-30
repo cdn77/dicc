@@ -18,29 +18,36 @@ export { SourceFiles } from './sourceFiles';
 export { TypeHelper } from './typeHelper';
 
 export namespace debug {
-  export const logger = ((plugins: Plugin[]) => new Logger({
-    globalContext: {},
-    plugins,
-  })) satisfies ServiceDefinition<Logger>;
+  export const logger = {
+    factory: (plugins: Plugin[]) => new Logger({
+      globalContext: {},
+      plugins,
+    }),
+  } satisfies ServiceDefinition<Logger>;
 
   export const console = {
     factory: (argv: Argv) => new ConsoleHandler({ threshold: argv.logLevel, timestamp: false }),
     scope: 'private',
-  } satisfies ServiceDefinition<Plugin>;
+    anonymous: true,
+  } satisfies ServiceDefinition<ConsoleHandler, Plugin>;
 }
 
-export const config = (
-  async (loader: ConfigLoader) => loader.load()
-) satisfies ServiceDefinition<DiccConfig>;
+export const config = {
+  factory: async (loader: ConfigLoader) => loader.load(),
+  anonymous: true,
+} satisfies ServiceDefinition<DiccConfig>;
 
-export const project = ((config: DiccConfig) => new Project({
-  tsConfigFilePath: config.project,
-  manipulationSettings: {
-    indentationText: IndentationText.TwoSpaces,
-    newLineKind: NewLineKind.LineFeed,
-    quoteKind: QuoteKind.Single,
-    useTrailingCommas: true,
-  },
-})) satisfies ServiceDefinition<Project>;
+export const project = {
+  factory: (config: DiccConfig) => new Project({
+    tsConfigFilePath: config.project,
+    manipulationSettings: {
+      indentationText: IndentationText.TwoSpaces,
+      newLineKind: NewLineKind.LineFeed,
+      quoteKind: QuoteKind.Single,
+      useTrailingCommas: true,
+    },
+  }),
+  anonymous: true,
+} satisfies ServiceDefinition<Project>;
 
 export const dicc = Dicc satisfies ServiceDefinition<Dicc>;

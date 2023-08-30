@@ -13,7 +13,13 @@ export class Checker {
 
   removeExtraneousImplicitRegistrations(): void {
     for (const def of this.registry.getDefinitions()) {
-      if (!def.explicit && this.registry.getIdsByType(def.type).filter((id) => id !== def.id).length) {
+      if (def.explicit) {
+        continue;
+      }
+
+      const others = this.registry.getByType(def.type).filter((d) => d !== def);
+
+      if ((!def.factory && others.find((d) => d.factory)) || others.find((d) => d.explicit)) {
         this.logger.debug(`Unregistered extraneous service '${def.path}'`);
         this.registry.unregister(def.id);
       }

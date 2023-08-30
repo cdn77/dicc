@@ -29,6 +29,7 @@ export type ServiceRegistrationInfo = {
   aliases: Type[];
   object?: boolean;
   explicit?: boolean;
+  anonymous?: boolean;
   factory?: ServiceFactoryInfo;
   args?: Record<string, CallbackInfo | undefined>;
   hooks: ServiceHooks;

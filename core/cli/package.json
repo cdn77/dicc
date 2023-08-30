@@ -9,7 +9,7 @@
     "ioc",
     "inversion of control"
   ],
-  "version": "0.0.35",
+  "version": "0.0.36",
   "license": "MIT",
   "author": {
     "name": "Dan Kadera",
@@ -34,7 +34,7 @@
   "dependencies": {
     "@debugr/console": "^3.0.0-rc.10",
     "@debugr/core": "^3.0.0-rc.12",
-    "dicc": "^0.0.26",
+    "dicc": "^0.0.27",
     "ts-morph": "^18.0",
     "typescript": "^5.0",
     "yaml": "^2.3.1",
