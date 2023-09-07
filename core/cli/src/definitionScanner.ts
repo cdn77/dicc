@@ -275,7 +275,7 @@ export class DefinitionScanner {
 
   private resolveServiceHook(definition: ObjectLiteralExpression, hook: string): CallbackInfo | undefined {
     const hookProp = definition.getProperty(hook);
-    const info = this.resolveCallbackInfo(hookProp, 1);
+    const info = this.resolveCallbackInfo(hookProp, hook === 'onFork' ? 2 : 1);
 
     if (!info && hookProp) {
       throw new Error(`Invalid '${hook}' hook, must be a method declaration or property assignment`);

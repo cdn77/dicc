@@ -261,19 +261,21 @@ export class Compiler {
     info: CallbackInfo | undefined,
     decorators: DecoratorInfo[],
   ): void {
-    const params = this.compileParameters(info?.parameters ?? []);
+    const params = ['service', ...this.compileParameters(info?.parameters ?? [])];
     const decParams = decorators.map(([,, info]) => this.compileParameters(info.parameters));
-    const inject = params.length > 0 || decParams.some((p) => p.length > 0);
+    const inject = params.length > 1 || decParams.some((p) => p.length > 0);
     const async = info?.async || decorators.some(([,, info]) => info.async);
 
     writer.write(`${hook}: `);
     writer.conditionalWrite(async, 'async ');
-    writer.write(`(service`);
+    writer.write(`(`);
+    writer.conditionalWrite(hook === 'onFork', 'callback, ');
+    writer.write(`service`);
     writer.conditionalWrite(inject, ', di');
     writer.write(') => ');
 
     if (!decorators.length) {
-      this.compileCall(writer, join('.', source, path, hook), ['service', ...params]);
+      this.compileCall(writer, join('.', source, path, hook), ['callback', ...params]);
       writer.write(',\n');
       return;
     }
@@ -281,31 +283,41 @@ export class Compiler {
     writer.write('{\n');
 
     writer.indent(() => {
-      let service = 'service';
-
       if (info) {
         if (hook === 'onFork') {
-          writer.write('const fork = ');
-          service = 'fork ?? service';
+          const tmp = new CodeBlockWriter(writer.getOptions());
+          tmp.write('async (fork) => {\n');
+          tmp.indent(() => {
+            this.compileDecoratorCalls(tmp, decorators, 'fork ?? service', hook, decParams);
+            tmp.write('return callback(fork);\n');
+          });
+          tmp.write('}');
+          params.unshift(tmp.toString());
         }
 
-        this.compileCall(writer, join(' ', info?.async && 'await', join('.', source, path, hook)), ['service', ...params]);
+        this.compileCall(writer, join(' ', hook === 'onFork' ? 'return' : info.async && 'await', join('.', source, path, hook)), params);
         writer.write(';\n');
       }
 
-      for (const [i, [source, path, info]] of decorators.entries()) {
-        writer.conditionalWrite((i > 0 ? decParams[i - 1] : params).length > 0 || decParams[i].length > 0, '\n');
-        this.compileCall(writer, join(' ', info.async && 'await', join('.', source, path, hook)), [service, ...decParams[i]]);
-        writer.write(';\n');
+      if (!info || hook !== 'onFork') {
+        writer.conditionalWrite(params.length > 1 || decParams[0].length > 0, '\n');
+        this.compileDecoratorCalls(writer, decorators, 'service', hook, decParams);
       }
 
-      if (hook === 'onFork') {
-        writer.conditionalWrite(decParams[decParams.length - 1].length > 0, '\n');
-        writer.write(`return ${info ? 'fork' : 'undefined'};\n`);
+      if (!info && hook === 'onFork') {
+        writer.write('return callback();\n');
       }
     });
 
     writer.write('},\n');
+  }
+
+  private compileDecoratorCalls(writer: CodeBlockWriter, decorators: DecoratorInfo[], service: string, hook: string, decParams: string[][]): void {
+    for (const [i, [source, path, info]] of decorators.entries()) {
+      writer.conditionalWrite(i > 0 && (decParams[i - 1].length > 0 || decParams[i].length > 0), '\n');
+      this.compileCall(writer, join(' ', info.async && 'await', join('.', source, path, hook)), [service, ...decParams[i]]);
+      writer.write(';\n');
+    }
   }
 
   private compileCall(writer: CodeBlockWriter, expression: string, params: string[]): void {

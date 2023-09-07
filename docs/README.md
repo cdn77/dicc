@@ -33,6 +33,9 @@ npm i --save dicc
  - [Config and compilation][4] - how to configure the compiler, how to compile
    a container and how to use the container at runtime
 
+## Integration recipes
+
+ - [Express][5]
 
 ## Developer documentation
 
@@ -44,3 +47,4 @@ to DICC or to extend it with custom functionality. Coming soon!
 [2]: user/02-intro-to-dicc.md
 [3]: user/03-services-and-dependencies.md
 [4]: user/04-config-and-compilation.md
+[5]: recipes/01-express.md

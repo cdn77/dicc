@@ -25,7 +25,7 @@ export class Container<Services extends Record<string, any> = {}> {
   private readonly aliases: Map<string, string[]> = new Map();
   private readonly globalServices: Store = new Store();
   private readonly localServices: AsyncLocalStorage<Store> = new AsyncLocalStorage();
-  private readonly forkHooks: Map<string, CompiledServiceForkHook<any>> = new Map();
+  private readonly forkHooks: [string, CompiledServiceForkHook<any>][] = [];
   private readonly creating: Set<string> = new Set();
 
   constructor(definitions: CompiledServiceDefinitionMap<Services>) {
@@ -101,14 +101,19 @@ export class Container<Services extends Record<string, any> = {}> {
   async fork<R>(cb: () => Promise<R>): Promise<R> {
     const parent = this.currentStore;
     const store = new Store(parent);
+    const chain = this.forkHooks.reduceRight((next, [id, hook]) => {
+      return async () => {
+        const callback = async (fork?: any) => {
+          fork && store.set(id, fork);
+          return next();
+        };
 
-    for (const [id, hook] of this.forkHooks) {
-      const fork = await hook(await this.get(id), this);
-      fork && store.set(id, fork);
-    }
+        return hook(callback, await this.get(id), this);
+      };
+    }, (async () => this.localServices.run(store, cb)) as () => Promise<any>);
 
     try {
-      return await this.localServices.run(store, cb);
+      return await chain();
     } finally {
       for (const [id, service] of store) {
         const definition = this.definitions.get(id);
@@ -137,7 +142,7 @@ export class Container<Services extends Record<string, any> = {}> {
     for (const [id, definition] of Object.entries(definitions)) {
       this.definitions.set(id, definition)
       this.aliases.set(id, [id]);
-      definition.onFork && this.forkHooks.set(id, definition.onFork);
+      definition.onFork && this.forkHooks.push([id, definition.onFork]);
 
       for (const alias of definition.aliases ?? []) {
         this.aliases.has(alias) || this.aliases.set(alias, []);
