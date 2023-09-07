@@ -275,7 +275,7 @@ export class Compiler {
     writer.write(') => ');
 
     if (!decorators.length) {
-      this.compileCall(writer, join('.', source, path, hook), ['callback', ...params]);
+      this.compileCall(writer, join('.', source, path, hook), hook === 'onFork' ? ['callback', ...params] : params);
       writer.write(',\n');
       return;
     }
