@@ -76,7 +76,7 @@ export class Checker {
     for (const diagnostic of output.getPreEmitDiagnostics()) {
       this.logger.log(
         this.getDiagnosticCategoryLogLevel(diagnostic.getCategory()),
-        this.formatDiagnostic(diagnostic.getLineNumber(), diagnostic.getMessageText()),
+        this.formatDiagnostic(diagnostic.getMessageText(), diagnostic.getLineNumber()),
       );
     }
   }
@@ -89,13 +89,19 @@ export class Checker {
     }
   }
 
-  private formatDiagnostic(line?: number, ...messages: (DiagnosticMessageChain | string)[]): string {
+  private formatDiagnostic(message: DiagnosticMessageChain | string, line?: number): string {
+    return line !== undefined
+      ? `line ${line} in compiled container: ${this.formatDiagnosticMessage(message)}`
+      : `in compiled container: ${this.formatDiagnosticMessage(message)}`;
+  }
+
+  private formatDiagnosticMessage(...messages: (DiagnosticMessageChain | string)[]): string {
     return messages.map((message) => {
       if (typeof message === 'string') {
-        return line !== undefined ? `L${line}: ${message}` : message;
+        return message;
       }
 
-      return this.formatDiagnostic(line, message.getMessageText(), ...message.getNext() ?? []);
+      return this.formatDiagnosticMessage(message.getMessageText(), ...message.getNext() ?? []);
     }).join('\n');
   }
 }
