@@ -46,6 +46,11 @@ export class Compiler {
   }
 
   private writeHeader(sources: Map<SourceFile, string>): void {
+    const imports = [...sources].map(([source, name]) => [
+      name,
+      this.output.getRelativePathAsModuleSpecifierTo(source),
+    ]);
+
     this.output.addImportDeclaration({
       moduleSpecifier: 'dicc',
       namedImports: [
@@ -53,11 +58,8 @@ export class Compiler {
       ],
     });
 
-    for (const [source, name] of sources) {
-      this.output.addImportDeclaration({
-        moduleSpecifier: this.output.getRelativePathAsModuleSpecifierTo(source),
-        namespaceImport: name,
-      });
+    for (const [namespaceImport, moduleSpecifier] of imports) {
+      this.output.addImportDeclaration({ moduleSpecifier, namespaceImport });
     }
   }
 

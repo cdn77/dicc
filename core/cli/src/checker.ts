@@ -1,5 +1,5 @@
-import { Logger } from '@debugr/core';
-import { Node } from 'ts-morph';
+import { Logger, LogLevel } from '@debugr/core';
+import { DiagnosticCategory, DiagnosticMessageChain, Node, SourceFile } from 'ts-morph';
 import { ServiceRegistry } from './serviceRegistry';
 import { TypeHelper } from './typeHelper';
 import { TypeFlag } from './types';
@@ -70,5 +70,32 @@ export class Checker {
         this.logger.warning(`No Container.register() call found for dynamic service '${id}'`);
       }
     }
+  }
+
+  checkOutput(output: SourceFile): void {
+    for (const diagnostic of output.getPreEmitDiagnostics()) {
+      this.logger.log(
+        this.getDiagnosticCategoryLogLevel(diagnostic.getCategory()),
+        this.formatDiagnostic(diagnostic.getLineNumber(), diagnostic.getMessageText()),
+      );
+    }
+  }
+
+  private getDiagnosticCategoryLogLevel(category: DiagnosticCategory): LogLevel {
+    switch (category) {
+      case DiagnosticCategory.Warning: return LogLevel.WARNING;
+      case DiagnosticCategory.Error: return LogLevel.ERROR;
+      default: return LogLevel.INFO;
+    }
+  }
+
+  private formatDiagnostic(line?: number, ...messages: (DiagnosticMessageChain | string)[]): string {
+    return messages.map((message) => {
+      if (typeof message === 'string') {
+        return line !== undefined ? `L${line}: ${message}` : message;
+      }
+
+      return this.formatDiagnostic(line, message.getMessageText(), ...message.getNext() ?? []);
+    }).join('\n');
   }
 }

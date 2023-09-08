@@ -50,5 +50,6 @@ export class Dicc {
 
     this.helper.destroy();
     await output.save();
+    this.checker.checkOutput(output);
   }
 }
