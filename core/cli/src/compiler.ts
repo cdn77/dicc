@@ -447,9 +447,15 @@ function compareIDs(a: string, b: string): number {
 }
 
 function extractSources(definitions: ServiceDefinitionInfo[]): Map<SourceFile, string> {
-  return new Map([
-    ...new Set(definitions.flatMap((d) => [d.source, ...d.decorators.map((o) => o.source)])),
-  ].map((s, i) => [s, `defs${i}`]));
+  const sources = [...new Set(definitions.flatMap((d) => [d.source, ...d.decorators.map((o) => o.source)]))];
+  sources.sort(compareSourceFiles);
+  return new Map(sources.map((s, i) => [s, `defs${i}`]));
+}
+
+function compareSourceFiles(a: SourceFile, b: SourceFile): number {
+  const pa = a.getFilePath();
+  const pb = b.getFilePath();
+  return pa < pb ? -1 : pa > pb ? 1 : 0;
 }
 
 function join(separator: string, ...tokens: (string | 0 | false | undefined)[]): string {
