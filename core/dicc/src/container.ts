@@ -14,8 +14,6 @@ import {
 import {
   createAsyncIterator,
   createIterator,
-  isAsyncIterable,
-  isIterable,
   isPromiseLike,
 } from './utils';
 
@@ -49,23 +47,13 @@ export class Container<Services extends Record<string, any> = {}> {
 
   find<K extends keyof Services>(alias: K): FindResult<Services, K>;
   find(alias: string): Promise<any[]> | any[] {
-    const iterable = this.iterate(alias);
+    const ids = this.resolve(alias, false);
+    const async = ids.some((id) => this.definitions.get(id)?.async);
 
-    if (isAsyncIterable(iterable)) {
-      return Promise.resolve().then(async () => {
-        const values: any[] = [];
-
-        for await (const value of iterable) {
-          values.push(value);
-        }
-
-        return values;
-      });
-    } else if (isIterable(iterable)) {
-      return [...iterable];
-    } else {
-      throw new Error(`This should be unreachable!`);
-    }
+    return async
+      ? Promise.all(ids.map(async (id) => this.getOrCreate(id, false)))
+        .then((services) => services.filter((service) => service !== undefined))
+      : ids.map((id) => this.getOrCreate(id, false)).filter((service) => service !== undefined);
   }
 
   register<K extends keyof Services>(alias: K, service: Services[K], force?: boolean): PromiseLike<void> | void;
