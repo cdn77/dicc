@@ -425,6 +425,14 @@ future, decorators might possibly be given the ability to completely override
 the service's type, although I will have to think hard on all the ramifications
 of such a capability.
 
+Decorators may be given a numeric _priority_ to influence the order in which
+they are applied to decorated services. The `priority` option defaults to zero,
+and decorators are applied in descending order of priority. There are no
+predetermined priority levels, you can simply choose whichever numbers make
+sense for your use case. You can e.g. use negative numbers for decorators which
+need to run later than any default-priority decorators etc. The order of
+decorators with the same priority is undefined.
+
 
 **Next**: [Config and compilation][1]
 

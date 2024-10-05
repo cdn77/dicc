@@ -14,31 +14,28 @@ applicable:
 # path to your project's tsconfig.json:
 project: './tsconfig.json'
 
-# required; path to the output file
-# which should contain the compiled code:
-output: ~
+# required; a map of containers you wish to compile,
+# with path to the generated file as the key and the
+# container options as the value:
+containers:
+  src/bootstrap.ts: # for example
+    # any text to add at the beginning of the compiled
+    # output file; useful for e.g. an eslint-disable comment:
+    preamble: ~
 
-# any text to add at the beginning of the compiled
-# output file; useful for e.g. an eslint-disable comment:
-preamble: ~
+    # the class name of the compiled container:
+    className: 'AppContainer'
 
-# the export name of the compiled container instance:
-name: 'container'
-
-# the export name of the compiled interface which
-# maps service IDs and aliases to their types:
-map: 'Services'
-
-# required; a map of <path>: [options] pairs:
-resources:
-  # a single file with no options;
-  'src/example.ts': ~
-  # multiple files can be selected using globs:
-  'src/examples/**/*.ts':
-    # exclude files or exported paths from scanning:
-    exclude:
-      - '**/__tests__/**'  # you can exclude by path
-      - 'path.to.NonServiceClass'  # or by object path
+    # required; a map of <path>: [options] pairs:
+    resources:
+      # a single file with no options;
+      'src/example.ts': ~
+      # multiple files can be selected using globs:
+      'src/examples/**/*.ts':
+        # exclude files or exported paths from scanning:
+        exclude:
+          - '**/__tests__/**'  # you can exclude by path
+          - 'path.to.NonServiceClass'  # or by object path
 ```
 
 ## Compiling a container
@@ -73,7 +70,9 @@ touch the container are the entrypoints of your application. For example, your
 `app.ts` could look something like this:
 
 ```typescript
-import { container } from './di';
+import { AppContainer } from './bootstrap';
+
+const container = new AppContainer();
 
 container.get('application').run();
 ```

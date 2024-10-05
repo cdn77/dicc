@@ -50,7 +50,7 @@ will be inside the resource file (or files).
  - supports _dynamic_ services which are known to the container, but must be
    registered manually in order to be available as dependencies to other
    services
- - supports _service decorators_ (not the same thing as `@Decorators`) which
+ - supports _service decorators_ (not the same thing as `@decorators`) which
    allow some modifications to service definitions without needing to alter the
    definitions themselves
  - compiles to regular TypeScript which you can easily examine to see what's
@@ -109,30 +109,34 @@ as its input:
 
 ```typescript
 import { Container } from 'dicc';
-import * as defs0 from './services.ts';
+import * as services0 from './services.ts';
 
 export interface Services {
-  '#ServiceOne.0': defs0.ServiceOne,
-  '#ServiceTwo.0': defs0.ServiceTwo,
-  '#ServiceThree.0': defs0.ServiceThree,
+  '#ServiceOne.0': services0.ServiceOne,
+  '#ServiceTwo.0': services0.ServiceTwo,
+  '#ServiceThree.0': services0.ServiceThree,
 }
 
-export const container = new Container<Services>({
-  '#ServiceOne.0': {
-    factory: () => new defs0.ServiceOne(),
-  },
-  '#ServiceTwo.0': {
-    async: true,
-    factory: async () => defs0.ServiceTwo.create(),
-  },
-  'ServiceThree.0': {
-    async: true,
-    factory: async (di) => new defs0.ServiceThree(
-      di.get('#ServiceOne.0'),
-      await di.get('#ServiceTwo.0'),
-    ),
-  },
-});
+export class AppContainer extends Container<Services> {
+  constructor() {
+    super({
+      '#ServiceOne.0': {
+        factory: () => new services0.ServiceOne(),
+      },
+      '#ServiceTwo.0': {
+        async: true,
+        factory: async () => services0.ServiceTwo.create(),
+      },
+      'ServiceThree.0': {
+        async: true,
+        factory: async (di) => new services0.ServiceThree(
+          di.get('#ServiceOne.0'),
+          await di.get('#ServiceTwo.0'),
+        ),
+      },
+    });
+  }
+}
 ```
 
 The DICC compiler actually uses DICC itself, so you can look at its source code
@@ -154,5 +158,5 @@ indentation or something, I'll just fix it.
 
 [1]: https://cdn77.github.io/dicc/
 [2]: https://github.com/cdn77/dicc/blob/main/core/cli/src/definitions.ts
-[3]: https://github.com/cdn77/dicc/blob/main/core/cli/src/container.ts
+[3]: https://github.com/cdn77/dicc/blob/main/core/cli/src/bootstrap.ts
 [4]: https://github.com/cdn77/dicc/blob/main/core/cli/src/cli.ts

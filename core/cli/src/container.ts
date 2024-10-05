@@ -59,7 +59,7 @@ export class Container {
     }
 
     for (const definition of decorated) {
-      definition.decorators.sort((a, b) => a.priority - b.priority);
+      definition.decorators.sort((a, b) => b.priority - a.priority);
     }
   }
 
