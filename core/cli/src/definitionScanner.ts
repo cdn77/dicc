@@ -20,6 +20,7 @@ import {
   VariableDeclaration,
 } from 'ts-morph';
 import { Container } from './container';
+import { DefinitionError } from './errors';
 import { TypeHelper } from './typeHelper';
 import {
   CallbackInfo,
@@ -253,20 +254,20 @@ export class DefinitionScanner {
     if (!argsProp) {
       return undefined;
     } else if (!Node.isPropertyAssignment(argsProp)) {
-      throw new Error(`Invalid 'args', must be a property assignment`);
+      throw new DefinitionError(`Invalid 'args', must be a property assignment`, argsProp);
     }
 
     const argsInit = argsProp.getInitializer();
 
     if (!Node.isObjectLiteralExpression(argsInit)) {
-      throw new Error(`Invalid 'args', must be an object literal`);
+      throw new DefinitionError(`Invalid 'args', must be an object literal`, argsInit ?? argsProp);
     }
 
     const args: Record<string, CallbackInfo | undefined> = {};
 
     for (const arg of argsInit.getProperties()) {
       if (!Node.isPropertyAssignment(arg)) {
-        throw new Error(`Invalid 'args' property, 'args' must be a plain object literal`);
+        throw new DefinitionError(`Invalid 'args' property, 'args' must be a plain object literal`, arg ?? argsInit);
       }
 
       args[arg.getName()] = this.resolveCallbackInfo(arg);
@@ -294,7 +295,7 @@ export class DefinitionScanner {
     const info = this.resolveCallbackInfo(hookProp, hook === 'onFork' ? 2 : 1);
 
     if (!info && hookProp) {
-      throw new Error(`Invalid '${hook}' hook, must be a method declaration or property assignment`);
+      throw new DefinitionError(`Invalid '${hook}' hook, must be a method declaration or property assignment`, hookProp);
     }
 
     return info;
@@ -350,7 +351,7 @@ export class DefinitionScanner {
     if (!initializer) {
       return undefined;
     } else if (!Node.isStringLiteral(initializer)) {
-      throw new Error(`The 'scope' option must be a string literal`);
+      throw new DefinitionError(`The 'scope' option must be a string literal`, initializer);
     }
 
     const scope = initializer.getLiteralValue();
@@ -361,7 +362,7 @@ export class DefinitionScanner {
       case 'private':
         return scope;
       default:
-        throw new Error(`Invalid value for 'scope', must be one of 'global', 'local' or 'private'`);
+        throw new DefinitionError(`Invalid value for 'scope', must be one of 'global', 'local' or 'private'`, initializer);
     }
   }
 
@@ -373,7 +374,7 @@ export class DefinitionScanner {
     } else if (Node.isNumericLiteral(initializer)) {
       return initializer.getLiteralValue();
     } else {
-      throw new Error(`The 'priority' option must be a numeric literal`);
+      throw new DefinitionError(`The 'priority' option must be a numeric literal`, initializer);
     }
   }
 
@@ -385,7 +386,7 @@ export class DefinitionScanner {
     } else if (Node.isTrueLiteral(initializer) || Node.isFalseLiteral(initializer)) {
       return initializer.getLiteralValue();
     } else {
-      throw new Error(`The 'anonymous' option must be a boolean literal`);
+      throw new DefinitionError(`The 'anonymous' option must be a boolean literal`, initializer);
     }
   }
 
@@ -399,7 +400,7 @@ export class DefinitionScanner {
     if (!prop) {
       return undefined;
     } else if (!Node.isPropertyAssignment(prop)) {
-      throw new Error(`The '${name}' option must be a simple property assignment`);
+      throw new DefinitionError(`The '${name}' option must be a simple property assignment`, prop);
     }
 
     return prop.getInitializerOrThrow(`Missing initializer for option '${name}'`);

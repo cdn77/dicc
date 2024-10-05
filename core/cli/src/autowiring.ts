@@ -1,6 +1,7 @@
 import { Logger } from '@debugr/core';
 import { ServiceScope } from 'dicc';
 import { Container } from './container';
+import { TypeError, UserError } from './errors';
 import {
   CallbackInfo,
   ParameterInfo,
@@ -165,16 +166,17 @@ export class Autowiring {
         return false;
       }
 
-      throw new Error(
+      throw new TypeError(
         parameter.flags & TypeFlag.Injector
           ? `Unknown service type in injector '${parameter.name}' of ${target}`
-          : `Unable to autowire non-optional parameter '${parameter.name}' of ${target}`
+          : `Unable to autowire non-optional parameter '${parameter.name}' of ${target}`,
+        parameter.type,
       );
     } else if (candidates.length > 1 && !(parameter.flags & (TypeFlag.Array | TypeFlag.Iterable))) {
-      throw new Error(`Multiple services for parameter '${parameter.name}' of ${target} found`);
+      throw new TypeError(`Multiple services for parameter '${parameter.name}' of ${target} found`, parameter.type);
     } else if (parameter.flags & TypeFlag.Injector) {
       if (candidates[0].scope === 'private') {
-        throw new Error(`Cannot inject injector for privately-scoped service '${candidates[0].id}' into ${target}`);
+        throw new TypeError(`Cannot inject injector for privately-scoped service '${candidates[0].id}' into ${target}`, parameter.type);
       }
 
       return false;
@@ -186,12 +188,12 @@ export class Autowiring {
       this.checkServiceDependencies(container, candidate);
 
       if (scope === 'global' && candidate.scope === 'local' && !(parameter.flags & TypeFlag.Accessor)) {
-        throw new Error(`Cannot inject locally-scoped service '${candidate.id}' into globally-scoped ${target}`);
+        throw new TypeError(`Cannot inject locally-scoped service '${candidate.id}' into globally-scoped ${target}`, parameter.type);
       }
 
       if (candidate.factory?.async && !(parameter.flags & TypeFlag.Async)) {
         if (parameter.flags & (TypeFlag.Accessor | TypeFlag.Iterable)) {
-          throw new Error(`Cannot inject async service '${candidate.id}' into synchronous accessor or iterable parameter '${parameter.name}' of ${target}`);
+          throw new TypeError(`Cannot inject async service '${candidate.id}' into synchronous accessor or iterable parameter '${parameter.name}' of ${target}`, parameter.type);
         }
 
         async = true;
@@ -235,7 +237,7 @@ export class Autowiring {
     const idx = this.resolving.indexOf(id);
 
     if (idx > -1) {
-      throw new Error(`Cyclic dependency detected: ${this.resolving.join(' → ')} → ${id}`);
+      throw new UserError(`Cyclic dependency detected: ${this.resolving.join(' → ')} → ${id}`);
     }
 
     this.resolving.push(id);

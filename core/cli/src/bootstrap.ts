@@ -46,6 +46,7 @@ export class DiccContainer extends Container<Services>{
           di.get('#Autowiring.0'),
           await di.get('#Checker.0'),
           await di.get('#DiccConfig.0'),
+          di.get('#Logger.0'),
         ),
       },
       '#Argv.0': {

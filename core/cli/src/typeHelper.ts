@@ -12,6 +12,7 @@ import {
   TypeNode,
   TypeReferenceNode,
 } from 'ts-morph';
+import { TypeError } from './errors';
 import { ReferenceResolver } from './referenceResolver';
 import { SourceFiles } from './sourceFiles';
 import { ReferenceMap, TypeFlag } from './types';
@@ -73,6 +74,7 @@ export class TypeHelper {
   }
 
   resolveType(type: Type): [type: Type, flags: TypeFlag] {
+    const originalType = type;
     let flags: TypeFlag = TypeFlag.None;
 
     [type, flags] = this.resolveNullable(type, flags);
@@ -113,11 +115,11 @@ export class TypeHelper {
     }
 
     if ((flags & TypeFlag.Iterable) && (flags & (TypeFlag.Accessor | TypeFlag.Array))) {
-      throw new Error(`Iterable services are mutually exclusive with accessors and arrays`);
+      throw new TypeError(`Iterable services are mutually exclusive with accessors and arrays`, originalType);
     } else if ((flags & TypeFlag.Injector) && flags !== TypeFlag.Injector) {
-      throw new Error(`Injectors must accept a single resolved service instance`);
+      throw new TypeError(`Injectors must accept a single resolved service instance`, originalType);
     } else if ((flags & TypeFlag.Container) && flags !== TypeFlag.Container) {
-      throw new Error(`A dependency on the container can only be a direct dependency`);
+      throw new TypeError(`A dependency on the container can only be a direct dependency`, originalType);
     }
 
     return [type, flags];
@@ -200,7 +202,7 @@ export class TypeHelper {
     const ctors = factory.getConstructSignatures();
 
     if (!ctors.length) {
-      return [this.getFirstSignature(factory.getCallSignatures())];
+      return [this.getFirstSignature(factory.getCallSignatures(), factory)];
     }
 
     const publicCtors = ctors.filter((ctor) => {
@@ -219,17 +221,17 @@ export class TypeHelper {
     if (!publicCtors.length) {
       const cprop = factory.getProperty('create');
       const csig = cprop?.getTypeAtLocation(cprop.getValueDeclarationOrThrow()).getCallSignatures();
-      return [this.getFirstSignature(csig ?? []), 'create'];
+      return [this.getFirstSignature(csig ?? [], factory), 'create'];
     }
 
-    return [this.getFirstSignature(publicCtors), 'constructor'];
+    return [this.getFirstSignature(publicCtors, factory), 'constructor'];
   }
 
-  private getFirstSignature([first, ...rest]: Signature[]): Signature {
+  private getFirstSignature([first, ...rest]: Signature[], ctx: Type): Signature {
     if (!first) {
-      throw new Error(`No call or construct signatures found on service factory`);
+      throw new TypeError(`No call or construct signatures found on service factory`, ctx);
     } else if (rest.length) {
-      throw new Error(`Multiple overloads on service factories aren't supported`);
+      throw new TypeError(`Multiple overloads on service factories aren't supported`, ctx);
     }
 
     return first;

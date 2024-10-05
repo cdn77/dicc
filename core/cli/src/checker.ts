@@ -71,13 +71,19 @@ export class Checker {
     }
   }
 
-  checkOutput(output: SourceFile): void {
+  checkOutput(output: SourceFile): boolean {
+    let ok = true;
+
     for (const diagnostic of output.getPreEmitDiagnostics()) {
       this.logger.log(
         this.getDiagnosticCategoryLogLevel(diagnostic.getCategory()),
         this.formatDiagnostic(diagnostic.getMessageText(), diagnostic.getLineNumber()),
       );
+
+      diagnostic.getCategory() === DiagnosticCategory.Error && (ok = false);
     }
+
+    return ok;
   }
 
   private getDiagnosticCategoryLogLevel(category: DiagnosticCategory): LogLevel {

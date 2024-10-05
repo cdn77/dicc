@@ -2,6 +2,7 @@ import { readFile } from 'fs/promises';
 import { resolve } from 'path';
 import { parse } from 'yaml';
 import { Argv } from './argv';
+import { ConfigError } from './errors';
 import { DiccConfig, diccConfigSchema } from './types';
 
 const defaultConfigFiles = [
@@ -25,7 +26,7 @@ export class ConfigLoader {
       const config = parse(data);
       return diccConfigSchema.parse(config);
     } catch (e: any) {
-      throw new Error(`Error in config file '${file}': ${e.message}`);
+      throw new ConfigError(`Error in config file '${file}': ${e.message}`);
     }
   }
 
@@ -43,11 +44,11 @@ export class ConfigLoader {
           continue;
         }
 
-        throw e;
+        throw new ConfigError(`Error reading config file '${file}': ${e.message}`);
       }
     }
 
-    throw new Error(
+    throw new ConfigError(
       this.configFile === undefined
         ? 'Config file not specified and none of the default config files exists'
         : `Config file '${this.configFile}' doesn't exist`,
