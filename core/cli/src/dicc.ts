@@ -43,7 +43,7 @@ export class Dicc {
       this.checker.removeExtraneousImplicitRegistrations(container);
       container.applyDecorators();
       this.autowiring.checkDependencies(container);
-      this.checker.scanUsages(container);
+      // this.checker.scanUsages(container); // this doesn't work correctly with multiple containers
     }
 
     for (const { container, outputFile, config } of containers) {
