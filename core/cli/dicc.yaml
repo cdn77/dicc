@@ -1,3 +1,13 @@
-output: src/container.ts
-resources:
-  src/definitions.ts: ~
+containers:
+  src/bootstrap.ts:
+    className: DiccContainer
+    resources:
+      src/argv.ts: ~
+      src/autowiring.ts: ~
+      src/checker.ts: ~
+      src/configLoader.ts: ~
+      src/definitions.ts: ~
+      src/definitionScanner.ts: ~
+      src/container.ts: ~
+      src/sourceFiles.ts: ~
+      src/typeHelper.ts: ~

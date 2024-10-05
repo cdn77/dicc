@@ -6,19 +6,23 @@ const resourceSchema = z.strictObject({
   exclude: z.array(z.string()).optional(),
 });
 
-export const diccConfigSchema = z.strictObject({
-  project: z.string().default('./tsconfig.json'),
-  output: z.string(),
+const containerConfigSchema = z.strictObject({
   preamble: z.string().optional(),
-  name: z.string().regex(/^[a-z$_][a-z0-9$_]*$/i, 'Invalid identifier').default('container'),
-  map: z.string().regex(/^[a-z$_][a-z0-9$_]*$/i, 'Invalid identifier').default('Services'),
+  className: z.string().regex(/^[a-z$_][a-z0-9$_]*$/i, 'Invalid identifier').default('AppContainer'),
   resources: z.record(resourceSchema.optional().nullable()),
 });
 
+export const diccConfigSchema = z.strictObject({
+  project: z.string().default('./tsconfig.json'),
+  containers: z.record(containerConfigSchema),
+});
+
 type ResourceConfigSchema = z.infer<typeof resourceSchema>;
+type ContainerConfigSchema = z.infer<typeof containerConfigSchema>;
 type DiccConfigSchema = z.infer<typeof diccConfigSchema>;
 
 export interface ResourceOptions extends ResourceConfigSchema {}
+export interface ContainerOptions extends ContainerConfigSchema {}
 export interface DiccConfig extends DiccConfigSchema {}
 
 export type ServiceRegistrationInfo = {
@@ -46,6 +50,7 @@ export type ServiceDecoratorInfo = {
   source: SourceFile;
   path: string;
   type: Type;
+  priority: number;
   decorate?: CallbackInfo;
   hooks: ServiceHooks;
   scope?: ServiceScope;

@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 
-import { container } from './container';
+import { DiccContainer } from './bootstrap';
 
 (async () => {
+  const container = new DiccContainer();
+
   try {
     const dicc = await container.get('dicc');
     await dicc.compile();

@@ -3,17 +3,14 @@ import { TypeHelper } from './typeHelper';
 import { ReferenceMap, ResolvedReference, ResolvedReferences } from './types';
 
 export class ReferenceResolver<M extends ReferenceMap> {
-  private readonly helper: TypeHelper;
-  private readonly file: SourceFile;
-  private readonly id: number;
-  private readonly map: M;
   private references?: ResolvedReferences<M>;
 
-  constructor(helper: TypeHelper, file: SourceFile, id: number, map: M) {
-    this.helper = helper;
-    this.file = file;
-    this.id = id;
-    this.map = map;
+  constructor(
+    private readonly helper: TypeHelper,
+    private readonly file: SourceFile,
+    private readonly id: number,
+    private readonly map: M,
+  ) {
     this.setupHelper();
   }
 

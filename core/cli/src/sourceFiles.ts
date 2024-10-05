@@ -1,36 +1,48 @@
+import { Logger } from '@debugr/core';
 import { Project, ScriptKind, SourceFile } from 'ts-morph';
 import { DiccConfig } from './types';
 
+type ContainerFiles = {
+  inputs: Map<string, SourceFile[]>;
+  output: SourceFile;
+};
+
 export class SourceFiles {
-  private readonly inputs: Map<string, SourceFile[]>;
-  private readonly output: SourceFile;
+  private readonly logger: Logger;
+  private readonly containers: Map<string, ContainerFiles> = new Map();
   private readonly helper: SourceFile;
 
-  constructor(project: Project, config: DiccConfig) {
-    this.inputs = new Map(Object.entries(config.resources).map(([resource, options]) => [
-      resource,
-      project.getSourceFiles(createSourceGlobs(resource, options?.exclude ?? [])),
-    ]));
-
-    this.output = project.createSourceFile(config.output, createEmptyOutput(config.map, config.name), {
-      scriptKind: ScriptKind.TS,
-      overwrite: true,
-    });
+  constructor(project: Project, config: DiccConfig, logger: Logger) {
+    this.logger = logger;
 
     this.helper = project.createSourceFile('@dicc-helper.d.ts', '', {
       scriptKind: ScriptKind.TS,
       overwrite: true,
     });
+
+    for (const [outputPath, options] of Object.entries(config.containers)) {
+      const inputs = new Map(Object.entries(options.resources).map(([resource, opts]) => [
+        resource,
+        project.getSourceFiles(createSourceGlobs(resource, opts?.exclude ?? [])),
+      ]));
+
+      const output = project.createSourceFile(outputPath, createEmptyOutput(options.className), {
+        scriptKind: ScriptKind.TS,
+        overwrite: true,
+      });
+
+      this.containers.set(outputPath, { inputs, output });
+    }
   }
 
-  getInputs(resource: string): SourceFile[] {
-    const inputs = this.inputs.get(resource);
+  getInputs(container: string, resource: string): SourceFile[] {
+    const inputs = this.getContainer(container).inputs.get(resource);
 
     if (!inputs) {
       throw new Error(`Unknown resource: '${resource}'`);
     } else if (!inputs.length) {
       if (resource.includes('*')) {
-        console.log(`Warning: resource '${resource}' didn't match any files`);
+        this.logger.warning(`Resource '${resource}' didn't match any files`);
       } else {
         throw new Error(`Resource '${resource}' doesn't exist`);
       }
@@ -39,12 +51,22 @@ export class SourceFiles {
     return inputs;
   }
 
-  getOutput(): SourceFile {
-    return this.output;
+  getOutput(container: string): SourceFile {
+    return this.getContainer(container).output;
   }
 
   getHelper(): SourceFile {
     return this.helper;
+  }
+
+  private getContainer(container: string): ContainerFiles {
+    const files = this.containers.get(container);
+
+    if (!files) {
+      throw new Error(`Unknown container: '${container}'`);
+    }
+
+    return files;
   }
 }
 
@@ -52,10 +74,10 @@ function createSourceGlobs(resource: string, exclude: string[]): string[] {
   return [resource].concat(exclude.filter((p) => /(\/|\.tsx?$)/i.test(p)).map((e) => `!${e}`));
 }
 
-function createEmptyOutput(mapName: string, exportName: string): string {
+function createEmptyOutput(className: string): string {
+  const declaration = className === 'default' ? 'default class' : `class ${className}`;
   return `
 import { Container } from 'dicc';
-export interface ${mapName} {}
-export const ${exportName} = new Container<${mapName}>({});
+export ${declaration} extends Container<{}> {}
 `;
 }

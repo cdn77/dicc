@@ -1,37 +1,24 @@
 import { ServiceScope } from 'dicc';
 import { CodeBlockWriter, SourceFile, Type } from 'ts-morph';
-import { Autowiring } from './autowiring';
-import { ServiceRegistry } from './serviceRegistry';
-import { SourceFiles } from './sourceFiles';
+import { Container } from './container';
 import {
-  DiccConfig,
   ParameterInfo,
   ServiceDecoratorInfo,
   ServiceDefinitionInfo,
   CallbackInfo,
   TypeFlag,
+  ContainerOptions,
 } from './types';
 
 export class Compiler {
-  private readonly registry: ServiceRegistry;
-  private readonly autowiring: Autowiring;
-  private readonly output: SourceFile;
-  private readonly config: DiccConfig;
-
   constructor(
-    registry: ServiceRegistry,
-    autowiring: Autowiring,
-    sourceFiles: SourceFiles,
-    config: DiccConfig,
-  ) {
-    this.registry = registry;
-    this.autowiring = autowiring;
-    this.output = sourceFiles.getOutput();
-    this.config = config;
-  }
+    private readonly container: Container,
+    private readonly output: SourceFile,
+    private readonly options: ContainerOptions,
+  ) {}
 
   compile(): void {
-    const definitions = [...this.registry.getDefinitions()].sort((a, b) => compareIDs(a.id, b.id));
+    const definitions = [...this.container.getDefinitions()].sort((a, b) => compareIDs(a.id, b.id));
     const sources = extractSources(definitions);
 
     this.output.replaceWithText('');
@@ -40,8 +27,8 @@ export class Compiler {
     this.writeMap(definitions, sources);
     this.writeDefinitions(definitions, sources);
 
-    if (this.config.preamble !== undefined) {
-      this.output.insertText(0, this.config.preamble.replace(/\s*$/, '\n\n'));
+    if (this.options.preamble !== undefined) {
+      this.output.insertText(0, this.options.preamble.replace(/\s*$/, '\n\n'));
     }
   }
 
@@ -67,7 +54,7 @@ export class Compiler {
     let useServiceType = false;
 
     this.output.addStatements((writer) => {
-      writer.writeLine(`\nexport interface ${this.config.map} {`);
+      writer.writeLine(`\ninterface Services {`);
 
       const aliasMap: Map<string, Set<string>> = new Map();
 
@@ -82,7 +69,7 @@ export class Compiler {
           !/^#/.test(id) && writer.writeLine(`'${id}': ${fullType};`);
 
           for (const typeAlias of [type, ...aliases]) {
-            const alias = this.registry.getTypeId(typeAlias);
+            const alias = this.container.getTypeId(typeAlias);
 
             if (alias !== undefined) {
               aliasMap.has(alias) || aliasMap.set(alias, new Set());
@@ -121,15 +108,27 @@ export class Compiler {
     sources: Map<SourceFile, string>,
   ): void {
     this.output.addStatements((writer) => {
-      writer.writeLine(`\nexport const ${this.config.name} = new Container<${this.config.map}>({`);
+      const declaration = this.options.className === 'default'
+        ? 'default class'
+        : `class ${this.options.className}`;
+
+      writer.writeLine(`\nexport ${declaration} extends Container<Services>{`);
 
       writer.indent(() => {
-        for (const definition of definitions) {
-          this.compileDefinition(writer, definition, sources);
-        }
+        writer.writeLine('constructor() {');
+        writer.indent(() => {
+          writer.writeLine('super({');
+          writer.indent(() => {
+            for (const definition of definitions) {
+              this.compileDefinition(writer, definition, sources);
+            }
+          });
+          writer.writeLine('});');
+        });
+        writer.writeLine('}');
       });
 
-      writer.writeLine('});\n');
+      writer.writeLine('}\n');
     });
   }
 
@@ -147,7 +146,7 @@ export class Compiler {
 
       const types = [!/^#/.test(id) ? type : undefined, ...aliases]
         .filter((v): v is Type => v !== undefined)
-        .map((t) => `'${this.autowiring.getTypeId(t)}'`);
+        .map((t) => `'${this.container.getTypeId(t)}'`);
 
       writer.conditionalWriteLine(types.length > 0, `aliases: [${types.join(`, `)}],`);
       writer.conditionalWriteLine(async, `async: true,`);
@@ -374,7 +373,7 @@ export class Compiler {
       return 'di';
     }
 
-    const id = param.type && this.autowiring.getTypeId(param.type);
+    const id = param.type && this.container.getTypeId(param.type);
 
     if (!param.type || id === undefined) {
       return undefined;
@@ -387,7 +386,7 @@ export class Compiler {
     const paramWantsAccessor = Boolean(param.flags & TypeFlag.Accessor);
     const paramWantsIterable = Boolean(param.flags & TypeFlag.Iterable);
     const paramIsOptional = Boolean(param.flags & TypeFlag.Optional);
-    const valueIsAsync = this.autowiring.isAsync(param.type);
+    const valueIsAsync = this.container.isAsync(param.type);
     let method: string = paramWantsArray ? 'find' : 'get';
     let prefix: string = '';
     let arg: string = '';
@@ -449,13 +448,24 @@ function compareIDs(a: string, b: string): number {
 function extractSources(definitions: ServiceDefinitionInfo[]): Map<SourceFile, string> {
   const sources = [...new Set(definitions.flatMap((d) => [d.source, ...d.decorators.map((o) => o.source)]))];
   sources.sort(compareSourceFiles);
-  return new Map(sources.map((s, i) => [s, `defs${i}`]));
+  const aliases: Record<string, number> = {};
+  return new Map(sources.map((s) => [s, extractSourceAlias(s, aliases)]));
 }
 
 function compareSourceFiles(a: SourceFile, b: SourceFile): number {
   const pa = a.getFilePath();
   const pb = b.getFilePath();
   return pa < pb ? -1 : pa > pb ? 1 : 0;
+}
+
+function extractSourceAlias(source: SourceFile, map: Record<string, number>): string {
+  const alias = source.getFilePath()
+    .replace(/^(?:.*\/)?([^\/]+)(?:\/index)?(?:\.d)?\.tsx?$/i, '$1')
+    .replace(/[^a-z0-9]+/gi, '')
+    || 'anon';
+  map[alias] ??= 0;
+  const idx = map[alias]++;
+  return `${alias}${idx}`;
 }
 
 function join(separator: string, ...tokens: (string | 0 | false | undefined)[]): string {

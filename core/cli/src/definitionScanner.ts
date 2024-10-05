@@ -19,7 +19,7 @@ import {
   TypeReferenceNode,
   VariableDeclaration,
 } from 'ts-morph';
-import { ServiceRegistry } from './serviceRegistry';
+import { Container } from './container';
 import { TypeHelper } from './typeHelper';
 import {
   CallbackInfo,
@@ -32,14 +32,14 @@ import {
 
 export class DefinitionScanner {
   constructor(
-    private readonly registry: ServiceRegistry,
     private readonly helper: TypeHelper,
     private readonly logger: Logger,
   ) {}
 
-  scanDefinitions(source: SourceFile, options: ResourceOptions = {}): void {
+  scanDefinitions(container: Container, source: SourceFile, options: ResourceOptions = {}): void {
     const exclude = createExcludeRegex(options.exclude);
     const ctx: ScanContext = {
+      container,
       source,
       exclude,
       path: '',
@@ -183,8 +183,23 @@ export class DefinitionScanner {
     const anonymous = this.resolveAnonymousFlag(definition);
     const id = definition && !anonymous ? path : undefined;
     const explicit = !!definition;
+
     this.logger.debug(`Register service ${ctx.describe()}`);
-    this.registry.register({ source, path, id, type, aliases, object, explicit, anonymous, factory, args, scope, hooks });
+
+    ctx.container.register({
+      source,
+      path,
+      id,
+      type,
+      aliases,
+      object,
+      explicit,
+      anonymous,
+      factory,
+      args,
+      scope,
+      hooks,
+    });
   }
 
   private registerDecorator(ctx: ScanContext, definition: Expression, nodeType: TypeReferenceNode): void {
@@ -196,11 +211,12 @@ export class DefinitionScanner {
     const path = ctx.path.replace(/\.$/, '');
     const [typeArg] = nodeType.getTypeArguments();
     const type = typeArg.getType();
+    const priority = this.resolveDecoratorPriority(definition);
     const decorate = this.resolveServiceHook(definition, 'decorate');
     const scope = this.resolveServiceScope(definition);
     const hooks = this.resolveServiceHooks(definition);
     this.logger.debug(`Register decorator ${ctx.describe()}`);
-    this.registry.decorate({ source, path, type, decorate, scope, hooks });
+    ctx.container.decorate({ source, path, type, priority, decorate, scope, hooks });
   }
 
   private resolveFactory(type: Type, definition?: Expression): [factory?: ServiceFactoryInfo, object?: boolean] {
@@ -349,6 +365,18 @@ export class DefinitionScanner {
     }
   }
 
+  private resolveDecoratorPriority(definition?: Expression): number {
+    const initializer = this.resolvePropertyInitializer(definition, 'priority');
+
+    if (!initializer) {
+      return 0;
+    } else if (Node.isNumericLiteral(initializer)) {
+      return initializer.getLiteralValue();
+    } else {
+      throw new Error(`The 'priority' option must be a numeric literal`);
+    }
+  }
+
   private resolveAnonymousFlag(definition?: Expression): boolean | undefined {
     const initializer = this.resolvePropertyInitializer(definition, 'anonymous');
 
@@ -379,6 +407,7 @@ export class DefinitionScanner {
 }
 
 type ScanContext = {
+  container: Container,
   source: SourceFile;
   path: string;
   exclude?: RegExp;

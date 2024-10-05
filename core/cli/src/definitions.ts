@@ -7,16 +7,6 @@ import { ConfigLoader } from './configLoader';
 import { Dicc } from './dicc';
 import { DiccConfig } from './types';
 
-export { Argv } from './argv';
-export { Autowiring } from './autowiring';
-export { Checker } from './checker';
-export { Compiler } from './compiler';
-export { ConfigLoader } from './configLoader';
-export { DefinitionScanner } from './definitionScanner';
-export { ServiceRegistry } from './serviceRegistry';
-export { SourceFiles } from './sourceFiles';
-export { TypeHelper } from './typeHelper';
-
 export namespace debug {
   export const logger = {
     factory: (plugins: Plugin[]) => new Logger({

@@ -1,55 +1,64 @@
+import { SourceFile } from 'ts-morph';
 import { Autowiring } from './autowiring';
 import { Checker } from './checker';
 import { Compiler } from './compiler';
+import { Container } from './container';
 import { DefinitionScanner } from './definitionScanner';
 import { SourceFiles } from './sourceFiles';
 import { TypeHelper } from './typeHelper';
-import { DiccConfig } from './types';
+import { ContainerOptions, DiccConfig } from './types';
 
+type ContainerCtx = {
+  container: Container;
+  outputFile: SourceFile;
+  config: ContainerOptions;
+};
 
 export class Dicc {
-  private readonly sourceFiles: SourceFiles;
-  private readonly helper: TypeHelper;
-  private readonly scanner: DefinitionScanner;
-  private readonly autowiring: Autowiring;
-  private readonly compiler: Compiler;
-  private readonly checker: Checker;
-  private readonly config: DiccConfig;
-
   constructor(
-    sourceFiles: SourceFiles,
-    helper: TypeHelper,
-    scanner: DefinitionScanner,
-    autowiring: Autowiring,
-    compiler: Compiler,
-    checker: Checker,
-    config: DiccConfig,
-  ) {
-    this.sourceFiles = sourceFiles;
-    this.helper = helper;
-    this.scanner = scanner;
-    this.autowiring = autowiring;
-    this.compiler = compiler;
-    this.checker = checker;
-    this.config = config;
-  }
+    private readonly sourceFiles: SourceFiles,
+    private readonly helper: TypeHelper,
+    private readonly scanner: DefinitionScanner,
+    private readonly autowiring: Autowiring,
+    private readonly checker: Checker,
+    private readonly config: DiccConfig,
+  ) {}
 
   async compile(): Promise<void> {
-    const output = this.sourceFiles.getOutput();
+    const containers: Set<ContainerCtx> = new Set();
 
-    for (const [resource, options] of Object.entries(this.config.resources)) {
-      for (const input of this.sourceFiles.getInputs(resource)) {
-        this.scanner.scanDefinitions(input, options ?? undefined);
+    for (const [path, config] of Object.entries(this.config.containers)) {
+      const container = new Container();
+
+      for (const [resource, options] of Object.entries(config.resources)) {
+        for (const input of this.sourceFiles.getInputs(path, resource)) {
+          this.scanner.scanDefinitions(container, input, options ?? undefined);
+        }
       }
+
+      containers.add({ container, config, outputFile: this.sourceFiles.getOutput(path) });
     }
 
-    this.checker.removeExtraneousImplicitRegistrations();
-    this.autowiring.checkDependencies();
-    this.checker.scanUsages();
-    this.compiler.compile();
+    for (const { container } of containers) {
+      this.checker.removeExtraneousImplicitRegistrations(container);
+      container.applyDecorators();
+      this.autowiring.checkDependencies(container);
+      this.checker.scanUsages(container);
+    }
+
+    for (const { container, outputFile, config } of containers) {
+      const compiler = new Compiler(container, outputFile, config);
+      compiler.compile();
+    }
 
     this.helper.destroy();
-    await output.save();
-    this.checker.checkOutput(output);
+
+    for (const { outputFile } of containers) {
+      await outputFile.save();
+    }
+
+    for (const { outputFile } of containers) {
+      this.checker.checkOutput(outputFile);
+    }
   }
 }

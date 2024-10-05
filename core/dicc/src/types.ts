@@ -53,6 +53,7 @@ export type ServiceDecorator<T> = {
   onCreate?: ServiceHook<T>;
   onFork?: ServiceHook<T>;
   onDestroy?: ServiceHook<T>;
+  priority?: number;
 };
 
 export type ServiceType<D> =
