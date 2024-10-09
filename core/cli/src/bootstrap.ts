@@ -3,7 +3,6 @@ import * as argv0 from './argv';
 import * as autowiring0 from './autowiring';
 import * as checker0 from './checker';
 import * as configLoader0 from './configLoader';
-import * as container0 from './container';
 import * as definitionScanner0 from './definitionScanner';
 import * as definitions0 from './definitions';
 import * as sourceFiles0 from './sourceFiles';
@@ -17,7 +16,6 @@ interface Services {
   '#Checker.0': Promise<checker0.Checker>;
   '#ConfigLoader.0': configLoader0.ConfigLoader;
   '#ConsoleHandler.0': ServiceType<typeof definitions0.debug.console>;
-  '#Container.0': container0.Container;
   '#DefinitionScanner.0': Promise<definitionScanner0.DefinitionScanner>;
   '#Dicc.0': Promise<ServiceType<typeof definitions0.dicc>>;
   '#DiccConfig.0': Promise<ServiceType<typeof definitions0.config>>;
@@ -68,9 +66,6 @@ export class DiccContainer extends Container<Services>{
         ...definitions0.debug.console,
         aliases: ['#Plugin.0'],
         factory: (di) => definitions0.debug.console.factory(di.get('#Argv.0')),
-      },
-      '#Container.0': {
-        factory: () => new container0.Container(),
       },
       '#DefinitionScanner.0': {
         async: true,

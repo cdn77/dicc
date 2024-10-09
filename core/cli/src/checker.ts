@@ -1,6 +1,6 @@
 import { Logger, LogLevel } from '@debugr/core';
 import { DiagnosticCategory, DiagnosticMessageChain, Node, SourceFile } from 'ts-morph';
-import { Container } from './container';
+import { ContainerBuilder } from './containerBuilder';
 import { TypeHelper } from './typeHelper';
 import { TypeFlag } from './types';
 
@@ -10,27 +10,27 @@ export class Checker {
     private readonly logger: Logger,
   ) {}
 
-  removeExtraneousImplicitRegistrations(container: Container): void {
-    for (const def of container.getDefinitions()) {
+  removeExtraneousImplicitRegistrations(builder: ContainerBuilder): void {
+    for (const def of builder.getDefinitions()) {
       if (def.explicit) {
         continue;
       }
 
-      const others = container.getByType(def.type).filter((d) => d !== def);
+      const others = builder.getByType(def.type).filter((d) => d !== def);
 
       if ((!def.factory && others.find((d) => d.factory)) || others.find((d) => d.explicit)) {
         this.logger.debug(`Unregistered extraneous service '${def.path}'`);
-        container.unregister(def.id);
+        builder.unregister(def.id);
       }
     }
   }
 
-  scanUsages(container: Container): void {
+  scanUsages(builder: ContainerBuilder): void {
     for (const method of ['get', 'find', 'iterate']) {
       for (const call of this.helper.getContainerMethodCalls(method)) {
         const [id] = call.getArguments();
 
-        if (Node.isStringLiteral(id) && !container.has(id.getLiteralValue())) {
+        if (Node.isStringLiteral(id) && !builder.has(id.getLiteralValue())) {
           const sf = id.getSourceFile();
           const ln = id.getStartLineNumber();
           this.logger.warning(`Unknown service '${id.getLiteralValue()}' in call to Container.${method}() in '${sf.getFilePath()}' on line ${ln}`);
@@ -51,13 +51,13 @@ export class Checker {
     const injectors: Set<string> = new Set();
     const dynamic: Set<string> = new Set();
 
-    for (const definition of container.getDefinitions()) {
+    for (const definition of builder.getDefinitions()) {
       if (!definition.factory) {
         dynamic.add(definition.id);
       } else {
         for (const param of definition.factory.parameters) {
           if (param.flags & TypeFlag.Injector) {
-            const [id] = param.type ? container.getIdsByType(param.type) : []
+            const [id] = param.type ? builder.getIdsByType(param.type) : []
             injectors.add(id);
           }
         }

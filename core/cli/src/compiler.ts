@@ -1,6 +1,6 @@
 import { ServiceScope } from 'dicc';
 import { CodeBlockWriter, SourceFile, Type } from 'ts-morph';
-import { Container } from './container';
+import { ContainerBuilder } from './containerBuilder';
 import {
   ParameterInfo,
   ServiceDecoratorInfo,
@@ -12,13 +12,13 @@ import {
 
 export class Compiler {
   constructor(
-    private readonly container: Container,
+    private readonly builder: ContainerBuilder,
     private readonly output: SourceFile,
     private readonly options: ContainerOptions,
   ) {}
 
   compile(): void {
-    const definitions = [...this.container.getDefinitions()].sort((a, b) => compareIDs(a.id, b.id));
+    const definitions = [...this.builder.getDefinitions()].sort((a, b) => compareIDs(a.id, b.id));
     const sources = extractSources(definitions);
 
     this.output.replaceWithText('');
@@ -69,7 +69,7 @@ export class Compiler {
           !/^#/.test(id) && writer.writeLine(`'${id}': ${fullType};`);
 
           for (const typeAlias of [type, ...aliases]) {
-            const alias = this.container.getTypeId(typeAlias);
+            const alias = this.builder.getTypeId(typeAlias);
 
             if (alias !== undefined) {
               aliasMap.has(alias) || aliasMap.set(alias, new Set());
@@ -146,7 +146,7 @@ export class Compiler {
 
       const types = [!/^#/.test(id) ? type : undefined, ...aliases]
         .filter((v): v is Type => v !== undefined)
-        .map((t) => `'${this.container.getTypeId(t)}'`);
+        .map((t) => `'${this.builder.getTypeId(t)}'`);
 
       writer.conditionalWriteLine(types.length > 0, `aliases: [${types.join(`, `)}],`);
       writer.conditionalWriteLine(async, `async: true,`);
@@ -373,7 +373,7 @@ export class Compiler {
       return 'di';
     }
 
-    const id = param.type && this.container.getTypeId(param.type);
+    const id = param.type && this.builder.getTypeId(param.type);
 
     if (!param.type || id === undefined) {
       return undefined;
@@ -386,7 +386,7 @@ export class Compiler {
     const paramWantsAccessor = Boolean(param.flags & TypeFlag.Accessor);
     const paramWantsIterable = Boolean(param.flags & TypeFlag.Iterable);
     const paramIsOptional = Boolean(param.flags & TypeFlag.Optional);
-    const valueIsAsync = this.container.isAsync(param.type);
+    const valueIsAsync = this.builder.isAsync(param.type);
     let method: string = paramWantsArray ? 'find' : 'get';
     let prefix: string = '';
     let arg: string = '';

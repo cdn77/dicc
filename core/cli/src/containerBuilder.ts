@@ -1,11 +1,11 @@
 import { Type } from 'ts-morph';
 import { ServiceDecoratorInfo, ServiceDefinitionInfo, ServiceRegistrationInfo } from './types';
 
-export class Container {
+export class ContainerBuilder {
   private readonly definitions: Map<string, ServiceDefinitionInfo> = new Map();
   private readonly types: Map<Type, string> = new Map();
+  private readonly typeIds: Set<string> = new Set();
   private readonly aliases: Map<string, Set<string>> = new Map();
-  private readonly ids: Set<string> = new Set();
   private readonly decorators: Map<string, ServiceDecoratorInfo[]> = new Map();
 
   register({ id, type, ...registration }: ServiceRegistrationInfo): void {
@@ -109,9 +109,9 @@ export class Container {
     for (let idx = 0; true; ++idx) {
       const id = `#${name}.${idx}`;
 
-      if (!this.ids.has(id)) {
+      if (!this.typeIds.has(id)) {
         this.types.set(type, id);
-        this.ids.add(id);
+        this.typeIds.add(id);
         return id;
       }
     }

@@ -1,6 +1,6 @@
 import { Logger } from '@debugr/core';
 import { ServiceScope } from 'dicc';
-import { Container } from './container';
+import { ContainerBuilder } from './containerBuilder';
 import { TypeError, UserError } from './errors';
 import {
   CallbackInfo,
@@ -20,18 +20,18 @@ export class Autowiring {
     private readonly logger: Logger,
   ) {}
 
-  checkDependencies(container: Container): void {
-    for (const definition of container.getDefinitions()) {
-      this.checkServiceDependencies(container, definition);
+  checkDependencies(builder: ContainerBuilder): void {
+    for (const definition of builder.getDefinitions()) {
+      this.checkServiceDependencies(builder, definition);
     }
 
     // needs to run after all dependencies have been fully resolved
-    for (const definition of container.getDefinitions()) {
-      this.checkCyclicDependencies(container, definition);
+    for (const definition of builder.getDefinitions()) {
+      this.checkCyclicDependencies(builder, definition);
     }
   }
 
-  private checkServiceDependencies(container: Container, info: ServiceDefinitionInfo): void {
+  private checkServiceDependencies(builder: ContainerBuilder, info: ServiceDefinitionInfo): void {
     if (!this.visitService(info)) {
       return;
     }
@@ -40,7 +40,7 @@ export class Autowiring {
     const scope = this.resolveScope(info);
 
     if (info.factory) {
-      if (this.checkParameters(container, info.factory.parameters, `service '${info.path}'`, scope, info.args) && !info.factory.async) {
+      if (this.checkParameters(builder, info.factory.parameters, `service '${info.path}'`, scope, info.args) && !info.factory.async) {
         this.logger.trace(`Marking '${info.path}' factory as async because one or more parameters need to be awaited`);
         info.factory.async = true;
       }
@@ -51,12 +51,12 @@ export class Autowiring {
       }
     }
 
-    if (this.checkHooks(container, info.hooks, `service '${info.path}'`, scope) && !info.async) {
+    if (this.checkHooks(builder, info.hooks, `service '${info.path}'`, scope) && !info.async) {
       this.logger.trace(`Marking '${info.path}' as async because its 'onCreate' hook is async`);
       info.async = true;
     }
 
-    const flags = this.checkDecorators(container, info.decorators, scope);
+    const flags = this.checkDecorators(builder, info.decorators, scope);
 
     if (flags.asyncDecorate && info.factory && !info.factory.async) {
       this.logger.trace(`Marking '${info.path}' factory as async because it has an async decorator`);
@@ -74,7 +74,7 @@ export class Autowiring {
     return decoratorWithScope?.scope ?? definition.scope ?? 'global';
   }
 
-  private checkHooks(container: Container, hooks: ServiceHooks, target: string, scope: ServiceScope): boolean {
+  private checkHooks(builder: ContainerBuilder, hooks: ServiceHooks, target: string, scope: ServiceScope): boolean {
     for (const hook of ['onCreate', 'onFork', 'onDestroy'] as const) {
       const info = hooks[hook];
 
@@ -84,7 +84,7 @@ export class Autowiring {
 
       this.logger.debug(`Checking ${target} '${hook}' hook...`);
 
-      if (this.checkParameters(container, info.parameters, `'${hook}' hook of ${target}`, scope) && !info.async) {
+      if (this.checkParameters(builder, info.parameters, `'${hook}' hook of ${target}`, scope) && !info.async) {
         this.logger.trace(`Marking '${hook}' hook of ${target} as async because one or more parameters need to be awaited`);
         info.async = true;
       }
@@ -93,17 +93,17 @@ export class Autowiring {
     return hooks.onCreate?.async ?? false;
   }
 
-  private checkDecorators(container: Container, decorators: ServiceDecoratorInfo[], scope: ServiceScope): DecoratorFlags {
+  private checkDecorators(builder: ContainerBuilder, decorators: ServiceDecoratorInfo[], scope: ServiceScope): DecoratorFlags {
     const flags: DecoratorFlags = {};
 
     for (const decorator of decorators) {
-      this.checkDecorator(container, decorator, scope, flags);
+      this.checkDecorator(builder, decorator, scope, flags);
     }
 
     return flags;
   }
 
-  private checkDecorator(container: Container, decorator: ServiceDecoratorInfo, scope: ServiceScope, flags: DecoratorFlags): void {
+  private checkDecorator(builder: ContainerBuilder, decorator: ServiceDecoratorInfo, scope: ServiceScope, flags: DecoratorFlags): void {
     if (!this.visitDecorator(decorator, scope)) {
       decorator.decorate?.async && (flags.asyncDecorate = true);
       decorator.hooks.onCreate?.async && (flags.asyncOnCreate = true);
@@ -111,7 +111,7 @@ export class Autowiring {
     }
 
     if (decorator.decorate) {
-      if (this.checkParameters(container, decorator.decorate.parameters, `decorator '${decorator.path}'`, scope)) {
+      if (this.checkParameters(builder, decorator.decorate.parameters, `decorator '${decorator.path}'`, scope)) {
         this.logger.trace(`Marking decorator '${decorator.path}' as async because one or more parameters need to be awaited`);
         decorator.decorate.async = true;
       }
@@ -121,14 +121,14 @@ export class Autowiring {
       }
     }
 
-    if (this.checkHooks(container, decorator.hooks, `decorator '${decorator.path}'`, scope)) {
+    if (this.checkHooks(builder, decorator.hooks, `decorator '${decorator.path}'`, scope)) {
       this.logger.trace(`Marking decorator '${decorator.path}' as async because its 'onCreate' hook is async`);
       flags.asyncOnCreate = true;
     }
   }
 
   private checkParameters(
-    container: Container,
+    builder: ContainerBuilder,
     parameters: ParameterInfo[],
     target: string,
     scope: ServiceScope,
@@ -140,11 +140,11 @@ export class Autowiring {
       if (args && parameter.name in args) {
         const arg = args[parameter.name];
 
-        if (arg && this.checkParameters(container, arg.parameters, `argument '${parameter.name}' of ${target}`, scope)) {
+        if (arg && this.checkParameters(builder, arg.parameters, `argument '${parameter.name}' of ${target}`, scope)) {
           this.logger.trace(`Parameter '${parameter.name}' of ${target} is async`);
           async = true;
         }
-      } else if (this.checkParameter(container, parameter, target, scope)) {
+      } else if (this.checkParameter(builder, parameter, target, scope)) {
         this.logger.trace(`Parameter '${parameter.name}' of ${target} is async`);
         async = true;
       }
@@ -153,12 +153,12 @@ export class Autowiring {
     return async;
   }
 
-  private checkParameter(container: Container, parameter: ParameterInfo, target: string, scope: ServiceScope): boolean {
+  private checkParameter(builder: ContainerBuilder, parameter: ParameterInfo, target: string, scope: ServiceScope): boolean {
     if (parameter.flags & TypeFlag.Container) {
       return false;
     }
 
-    const candidates = parameter.type && container.getByType(parameter.type);
+    const candidates = parameter.type && builder.getByType(parameter.type);
 
     if (!candidates || !candidates.length) {
       if (parameter.flags & TypeFlag.Optional) {
@@ -185,7 +185,7 @@ export class Autowiring {
     let async = false;
 
     for (const candidate of candidates) {
-      this.checkServiceDependencies(container, candidate);
+      this.checkServiceDependencies(builder, candidate);
 
       if (scope === 'global' && candidate.scope === 'local' && !(parameter.flags & TypeFlag.Accessor)) {
         throw new TypeError(`Cannot inject locally-scoped service '${candidate.id}' into globally-scoped ${target}`, parameter.type);
@@ -203,33 +203,33 @@ export class Autowiring {
     return async;
   }
 
-  private checkCyclicDependencies(container: Container, definition: ServiceDefinitionInfo): void {
+  private checkCyclicDependencies(builder: ContainerBuilder, definition: ServiceDefinitionInfo): void {
     this.checkCyclicDependency(definition.id);
 
     for (const param of definition.factory?.parameters ?? []) {
-      this.checkParameterDependencies(container, param);
+      this.checkParameterDependencies(builder, param);
     }
 
     for (const param of definition.hooks?.onCreate?.parameters ?? []) {
-      this.checkParameterDependencies(container, param);
+      this.checkParameterDependencies(builder, param);
     }
 
     for (const param of definition.decorators.flatMap((d) => [...d.decorate?.parameters ?? [], ...d.hooks.onCreate?.parameters ?? []])) {
-      this.checkParameterDependencies(container, param);
+      this.checkParameterDependencies(builder, param);
     }
 
     this.releaseCyclicDependencyCheck(definition.id);
   }
 
-  private checkParameterDependencies(container: Container, param: ParameterInfo): void {
+  private checkParameterDependencies(builder: ContainerBuilder, param: ParameterInfo): void {
     if (param.flags & (TypeFlag.Async | TypeFlag.Accessor | TypeFlag.Iterable)) {
       return;
     }
 
-    const candidates = param.type && container.getByType(param.type);
+    const candidates = param.type && builder.getByType(param.type);
 
     for (const candidate of candidates ?? []) {
-      this.checkCyclicDependencies(container, candidate);
+      this.checkCyclicDependencies(builder, candidate);
     }
   }
 

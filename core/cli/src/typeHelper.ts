@@ -43,7 +43,7 @@ export class TypeHelper {
     }
   }
 
-  resolveServiceType(type: Type): [type: Type, async: boolean] {
+  unwrapAsyncType(type: Type): [type: Type, async: boolean] {
     const target = this.resolveRootType(type);
     let async = false;
 

@@ -19,7 +19,7 @@ import {
   TypeReferenceNode,
   VariableDeclaration,
 } from 'ts-morph';
-import { Container } from './container';
+import { ContainerBuilder } from './containerBuilder';
 import { DefinitionError } from './errors';
 import { TypeHelper } from './typeHelper';
 import {
@@ -37,10 +37,10 @@ export class DefinitionScanner {
     private readonly logger: Logger,
   ) {}
 
-  scanDefinitions(container: Container, source: SourceFile, options: ResourceOptions = {}): void {
+  scanDefinitions(builder: ContainerBuilder, source: SourceFile, options: ResourceOptions = {}): void {
     const exclude = createExcludeRegex(options.exclude);
     const ctx: ScanContext = {
-      container,
+      builder,
       source,
       exclude,
       path: '',
@@ -187,7 +187,7 @@ export class DefinitionScanner {
 
     this.logger.debug(`Register service ${ctx.describe()}`);
 
-    ctx.container.register({
+    ctx.builder.register({
       source,
       path,
       id,
@@ -217,7 +217,7 @@ export class DefinitionScanner {
     const scope = this.resolveServiceScope(definition);
     const hooks = this.resolveServiceHooks(definition);
     this.logger.debug(`Register decorator ${ctx.describe()}`);
-    ctx.container.decorate({ source, path, type, priority, decorate, scope, hooks });
+    ctx.builder.decorate({ source, path, type, priority, decorate, scope, hooks });
   }
 
   private resolveFactory(type: Type, definition?: Expression): [factory?: ServiceFactoryInfo, object?: boolean] {
@@ -239,7 +239,7 @@ export class DefinitionScanner {
     }
 
     const [signature, method] = this.helper.resolveFactorySignature(factoryType);
-    const [returnType, async] = this.helper.resolveServiceType(signature.getReturnType());
+    const [returnType, async] = this.helper.unwrapAsyncType(signature.getReturnType());
     const parameters = signature.getParameters().map((param) => this.resolveParameter(param));
     return { parameters, returnType, method, async };
   }
@@ -408,7 +408,7 @@ export class DefinitionScanner {
 }
 
 type ScanContext = {
-  container: Container,
+  builder: ContainerBuilder,
   source: SourceFile;
   path: string;
   exclude?: RegExp;

@@ -8,6 +8,5 @@ containers:
       src/configLoader.ts: ~
       src/definitions.ts: ~
       src/definitionScanner.ts: ~
-      src/container.ts: ~
       src/sourceFiles.ts: ~
       src/typeHelper.ts: ~

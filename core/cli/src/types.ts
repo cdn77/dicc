@@ -9,6 +9,7 @@ const resourceSchema = z.strictObject({
 const containerConfigSchema = z.strictObject({
   preamble: z.string().optional(),
   className: z.string().regex(/^[a-z$_][a-z0-9$_]*$/i, 'Invalid identifier').default('AppContainer'),
+  typeCheck: z.boolean().default(true),
   resources: z.record(resourceSchema.optional().nullable()),
 });
 

@@ -3,14 +3,14 @@ import { SourceFile } from 'ts-morph';
 import { Autowiring } from './autowiring';
 import { Checker } from './checker';
 import { Compiler } from './compiler';
-import { Container } from './container';
+import { ContainerBuilder } from './containerBuilder';
 import { DefinitionScanner } from './definitionScanner';
 import { UserError } from './errors';
 import { SourceFiles } from './sourceFiles';
 import { ContainerOptions, DiccConfig } from './types';
 
 type ContainerCtx = {
-  container: Container;
+  builder: ContainerBuilder;
   path: string;
   config: ContainerOptions;
   outputFile: SourceFile;
@@ -31,32 +31,32 @@ export class Dicc {
 
     for (const [path, config] of Object.entries(this.config.containers)) {
       this.logger.debug(`Scanning resources for '${path}'...`);
-      const container = new Container();
+      const builder = new ContainerBuilder();
 
       for (const [resource, options] of Object.entries(config.resources)) {
         for (const input of this.sourceFiles.getInputs(path, resource)) {
           this.logger.trace(`Scanning '${input.getFilePath()}'`);
-          this.scanner.scanDefinitions(container, input, options ?? undefined);
+          this.scanner.scanDefinitions(builder, input, options ?? undefined);
         }
       }
 
-      containers.add({ container, path, config, outputFile: this.sourceFiles.getOutput(path) });
+      containers.add({ builder, path, config, outputFile: this.sourceFiles.getOutput(path) });
     }
 
-    for (const { container, path } of containers) {
+    for (const { builder, path } of containers) {
       this.logger.debug(`Post-processing '${path}'...`);
       this.logger.trace('Cleaning up...');
-      this.checker.removeExtraneousImplicitRegistrations(container);
+      this.checker.removeExtraneousImplicitRegistrations(builder);
       this.logger.trace('Applying decorators...');
-      container.applyDecorators();
+      builder.applyDecorators();
       this.logger.trace('Autowiring dependencies...');
-      this.autowiring.checkDependencies(container);
-      // this.checker.scanUsages(container); // this doesn't work correctly with multiple containers
+      this.autowiring.checkDependencies(builder);
+      // this.checker.scanUsages(builder); // this doesn't work correctly with multiple containers
     }
 
-    for (const { container, outputFile, path, config } of containers) {
+    for (const { builder, outputFile, path, config } of containers) {
       this.logger.debug(`Compiling '${path}'...`);
-      const compiler = new Compiler(container, outputFile, config);
+      const compiler = new Compiler(builder, outputFile, config);
       compiler.compile();
     }
 
@@ -69,14 +69,16 @@ export class Dicc {
     this.logger.debug(`Type-checking compiled containers...`);
     let errors = false;
 
-    for (const { outputFile } of containers) {
-      if (!this.checker.checkOutput(outputFile)) {
+    for (const { outputFile, config, path } of containers) {
+      if (!config.typeCheck) {
+        this.logger.debug(`Type-checking disabled for '${path}', skipping.`);
+      } else if (!this.checker.checkOutput(outputFile)) {
         errors = true;
       }
     }
 
     if (errors) {
-      throw new UserError(`Compiled container has TypeScript errors`);
+      throw new UserError(`One or more compiled containers have TypeScript errors`);
     }
   }
 }
