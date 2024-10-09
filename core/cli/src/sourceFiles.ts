@@ -10,15 +10,9 @@ type ContainerFiles = {
 export class SourceFiles {
   private readonly logger: Logger;
   private readonly containers: Map<string, ContainerFiles> = new Map();
-  private readonly helper: SourceFile;
 
   constructor(project: Project, config: DiccConfig, logger: Logger) {
     this.logger = logger;
-
-    this.helper = project.createSourceFile('@dicc-helper.d.ts', '', {
-      scriptKind: ScriptKind.TS,
-      overwrite: true,
-    });
 
     for (const [outputPath, options] of Object.entries(config.containers)) {
       const inputs = new Map(Object.entries(options.resources).map(([resource, opts]) => [
@@ -53,10 +47,6 @@ export class SourceFiles {
 
   getOutput(container: string): SourceFile {
     return this.getContainer(container).output;
-  }
-
-  getHelper(): SourceFile {
-    return this.helper;
   }
 
   private getContainer(container: string): ContainerFiles {

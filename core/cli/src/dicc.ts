@@ -7,7 +7,6 @@ import { Container } from './container';
 import { DefinitionScanner } from './definitionScanner';
 import { UserError } from './errors';
 import { SourceFiles } from './sourceFiles';
-import { TypeHelper } from './typeHelper';
 import { ContainerOptions, DiccConfig } from './types';
 
 type ContainerCtx = {
@@ -20,7 +19,6 @@ type ContainerCtx = {
 export class Dicc {
   constructor(
     private readonly sourceFiles: SourceFiles,
-    private readonly helper: TypeHelper,
     private readonly scanner: DefinitionScanner,
     private readonly autowiring: Autowiring,
     private readonly checker: Checker,
@@ -63,7 +61,6 @@ export class Dicc {
     }
 
     this.logger.debug(`Writing output files...`);
-    this.helper.destroy();
 
     for (const { outputFile } of containers) {
       await outputFile.save();

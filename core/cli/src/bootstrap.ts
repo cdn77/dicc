@@ -41,7 +41,6 @@ export class DiccContainer extends Container<Services>{
         async: true,
         factory: async (di) => new definitions0.dicc(
           await di.get('#SourceFiles.0'),
-          await di.get('#TypeHelper.0'),
           await di.get('#DefinitionScanner.0'),
           di.get('#Autowiring.0'),
           await di.get('#Checker.0'),
@@ -100,7 +99,7 @@ export class DiccContainer extends Container<Services>{
       },
       '#TypeHelper.0': {
         async: true,
-        factory: async (di) => new typeHelper0.TypeHelper(await di.get('#SourceFiles.0')),
+        factory: async (di) => new typeHelper0.TypeHelper(await di.get('#Project.0')),
       },
     });
   }

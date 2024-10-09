@@ -91,22 +91,7 @@ export enum TypeFlag {
   Container = 0b1000000,
 }
 
-export type ReferenceSpecifier<T extends SyntaxKind = any> = {
-  module?: string;
-  kind: T;
-};
-
-export type ReferenceMap = {
-  [name: string]: ReferenceSpecifier;
-};
-
-export type ResolvedReference<S extends ReferenceSpecifier> =
-  S extends ReferenceSpecifier<infer K>
-  ? K extends SyntaxKind.TypeAliasDeclaration
+export type ResolvedReference<K extends SyntaxKind> =
+  K extends SyntaxKind.TypeAliasDeclaration
   ? Type
-  : KindToNodeMappings[K]
-  : never;
-
-export type ResolvedReferences<M extends ReferenceMap> = {
-  [N in keyof M]: ResolvedReference<M[N]>;
-};
+  : KindToNodeMappings[K];

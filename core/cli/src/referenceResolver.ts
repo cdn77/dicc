@@ -1,53 +1,70 @@
-import { Node, SourceFile, SyntaxKind, TypeAliasDeclaration } from 'ts-morph';
+import {
+  ExportedDeclarations,
+  Node,
+  Project,
+  SyntaxKind,
+  Type,
+  TypeAliasDeclaration,
+  ts,
+} from 'ts-morph';
 import { TypeHelper } from './typeHelper';
-import { ReferenceMap, ResolvedReference, ResolvedReferences } from './types';
+import { ResolvedReference } from './types';
 
-export class ReferenceResolver<M extends ReferenceMap> {
-  private references?: ResolvedReferences<M>;
+export class ReferenceResolver {
+  private readonly cache: Map<string, Type | Node> = new Map();
+  private readonly exports: ReadonlyMap<string, ExportedDeclarations[]>;
 
   constructor(
-    private readonly helper: TypeHelper,
-    private readonly file: SourceFile,
-    private readonly id: number,
-    private readonly map: M,
+    private readonly project: Project,
+    private readonly typeHelper: TypeHelper,
+    private readonly moduleName: string,
   ) {
-    this.setupHelper();
+    this.exports = this.resolveModule();
   }
 
-  get<N extends keyof M>(name: N): ResolvedReference<M[N]> {
-    this.references ??= this.resolve();
-    return this.references[name];
-  }
+  get<K extends SyntaxKind>(name: string, kind: K): ResolvedReference<K> {
+    const cached = this.cache.get(name);
 
-  private setupHelper(): void {
-    for (const [name, spec] of Object.entries(this.map)) {
-      if (spec.module) {
-        this.file.addStatements(`export { ${name} as ${name}${this.id} } from '${spec.module}';\n`);
-      } else {
-        const kind = spec.kind === SyntaxKind.TypeAliasDeclaration ? 'type' : 'const';
-        const exportName = name.replace(/(<|$)/, `${this.id}$1`);
-        this.file.addStatements(`export ${kind} ${exportName} = ${name};\n`);
-      }
-    }
-  }
-
-  private resolve(): ResolvedReferences<M> {
-    const references: ResolvedReferences<M> = {} as any;
-    const exports = this.file.getExportedDeclarations();
-
-    for (const [name, spec] of Object.entries(this.map)) {
-      const declarations = exports.get(`${name.replace(/<.+$/, '')}${this.id}`) ?? [];
-      const reference = declarations.find(Node.is(spec.kind));
-
-      if (!reference) {
-        throw new Error(`Unable to resolve reference to '${name}'${spec.module ? ` from module '${spec.module}'` : ''}`);
-      }
-
-      references[name as keyof ResolvedReferences<M>] = reference instanceof TypeAliasDeclaration
-        ? this.helper.resolveRootType(reference.getType())
-        : reference as any;
+    if (cached) {
+      return cached as ResolvedReference<K>;
     }
 
-    return references;
+    const declarations = this.exports.get(name);
+
+    if (!declarations) {
+      throw new Error(`Unable to resolve reference '${name}': module '${this.moduleName}' has no such export`);
+    }
+
+    const node = declarations.find(Node.is(kind));
+
+    if (!node) {
+      throw new Error(`Unable to resolve reference '${name}': module '${this.moduleName}' has no export of the required kind`);
+    }
+
+    const reference = node instanceof TypeAliasDeclaration
+      ? this.typeHelper.resolveRootType(node.getType())
+      : node;
+
+    this.cache.set(name, reference);
+    return reference as ResolvedReference<K>;
+  }
+
+  private resolveModule(): ReadonlyMap<string, ExportedDeclarations[]> {
+    const fs = this.project.getFileSystem();
+
+    const result = ts.resolveModuleName(
+      this.moduleName,
+      `${fs.getCurrentDirectory()}/dummy.ts`,
+      this.project.getCompilerOptions(),
+      this.project.getModuleResolutionHost(),
+    );
+
+    if (!result.resolvedModule) {
+      throw new Error(`Unable to resolve module '${this.moduleName}'`);
+    }
+
+    const file = this.project.addSourceFileAtPath(result.resolvedModule.resolvedFileName);
+
+    return file.getExportedDeclarations();
   }
 }

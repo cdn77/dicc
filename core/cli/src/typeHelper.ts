@@ -2,10 +2,9 @@ import {
   CallExpression,
   ClassDeclaration,
   InterfaceDeclaration,
-  Node,
+  Node, Project,
   PropertyName,
   Signature,
-  SourceFile,
   SyntaxKind,
   Type,
   TypeAliasDeclaration,
@@ -14,41 +13,24 @@ import {
 } from 'ts-morph';
 import { TypeError } from './errors';
 import { ReferenceResolver } from './referenceResolver';
-import { SourceFiles } from './sourceFiles';
-import { ReferenceMap, TypeFlag } from './types';
-
-const referenceSpecifiers = {
-  Container: { kind: SyntaxKind.ClassDeclaration, module: 'dicc' },
-  ServiceDefinition: { kind: SyntaxKind.TypeAliasDeclaration, module: 'dicc' },
-  ServiceDecorator: { kind: SyntaxKind.TypeAliasDeclaration, module: 'dicc' },
-  'Promise<T>': { kind: SyntaxKind.TypeAliasDeclaration },
-  'Iterable<T>': { kind: SyntaxKind.TypeAliasDeclaration },
-  'AsyncIterable<T>': { kind: SyntaxKind.TypeAliasDeclaration },
-} as const satisfies ReferenceMap;
+import { TypeFlag } from './types';
 
 export class TypeHelper {
-  private readonly helper: SourceFile;
-  private readonly refs: ReferenceResolver<typeof referenceSpecifiers>;
-  private resolvers: number = 0;
+  private readonly refs: ReferenceResolver;
   private containerType?: Type;
 
-  constructor(sourceFiles: SourceFiles) {
-    this.helper = sourceFiles.getHelper();
-    this.refs = this.createReferenceResolver(referenceSpecifiers);
-  }
-
-  destroy(): void {
-    this.helper.forget();
+  constructor(private readonly project: Project) {
+    this.refs = this.createReferenceResolver('dicc/refs');
   }
 
   isServiceDefinition(node?: TypeNode): node is TypeReferenceNode {
     return Node.isTypeReference(node)
-      && this.resolveRootType(node.getTypeName().getType()) === this.refs.get('ServiceDefinition');
+      && this.resolveRootType(node.getTypeName().getType()) === this.refs.get('ServiceDefinition', SyntaxKind.TypeAliasDeclaration);
   }
 
   isServiceDecorator(node?: TypeNode): node is TypeReferenceNode {
     return Node.isTypeReference(node)
-      && this.resolveRootType(node.getTypeName().getType()) === this.refs.get('ServiceDecorator');
+      && this.resolveRootType(node.getTypeName().getType()) === this.refs.get('ServiceDecorator', SyntaxKind.TypeAliasDeclaration);
   }
 
   resolveLiteralPropertyName(name: PropertyName): string | number | undefined {
@@ -65,7 +47,7 @@ export class TypeHelper {
     const target = this.resolveRootType(type);
     let async = false;
 
-    if (target === this.refs.get('Promise<T>')) {
+    if (target === this.refs.get('GlobalPromise', SyntaxKind.TypeAliasDeclaration)) {
       async = true;
       type = type.getTypeArguments()[0];
     }
@@ -96,12 +78,12 @@ export class TypeHelper {
 
     const target = this.resolveRootType(type);
 
-    if (target === this.refs.get('Promise<T>')) {
+    if (target === this.refs.get('GlobalPromise', SyntaxKind.TypeAliasDeclaration)) {
       [type, flags] = this.resolveNullable(type.getTypeArguments()[0], flags | TypeFlag.Async);
-    } else if (target === this.refs.get('Iterable<T>')) {
+    } else if (target === this.refs.get('GlobalIterable', SyntaxKind.TypeAliasDeclaration)) {
       flags |= TypeFlag.Iterable;
       type = type.getTypeArguments()[0];
-    } else if (target === this.refs.get('AsyncIterable<T>')) {
+    } else if (target === this.refs.get('GlobalAsyncIterable', SyntaxKind.TypeAliasDeclaration)) {
       flags |= TypeFlag.Async | TypeFlag.Iterable;
       type = type.getTypeArguments()[0];
     } else if (target === this.getContainerType()) {
@@ -247,12 +229,14 @@ export class TypeHelper {
     return target ?? type;
   }
 
-  createReferenceResolver<M extends ReferenceMap>(map: M): ReferenceResolver<M> {
-    return new ReferenceResolver(this, this.helper, ++this.resolvers, map);
+  createReferenceResolver(moduleName: string): ReferenceResolver {
+    return new ReferenceResolver(this.project, this, moduleName);
   }
 
   * getContainerMethodCalls(methodName: string): Iterable<CallExpression> {
-    const method = this.refs.get('Container').getInstanceMethodOrThrow(methodName);
+    const method = this.refs
+      .get('Container', SyntaxKind.ClassDeclaration)
+      .getInstanceMethodOrThrow(methodName);
 
     for (const r1 of method.findReferences()) {
       for (const r2 of r1.getReferences()) {
@@ -268,6 +252,6 @@ export class TypeHelper {
   }
 
   getContainerType(): Type {
-    return this.containerType ??= this.resolveRootType(this.refs.get('Container').getType());
+    return this.containerType ??= this.resolveRootType(this.refs.get('Container', SyntaxKind.ClassDeclaration).getType());
   }
 }

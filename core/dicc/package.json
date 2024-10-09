@@ -23,7 +23,8 @@
     "directory": "core/dicc"
   },
   "files": [
-    "dist"
+    "dist",
+    "refs.d.ts"
   ],
   "engines": {
     "node": ">=18"
