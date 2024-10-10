@@ -1,6 +1,7 @@
 import { Logger, LogLevel } from '@debugr/core';
 import { DiagnosticCategory, DiagnosticMessageChain, Node, SourceFile } from 'ts-morph';
 import { ContainerBuilder } from './containerBuilder';
+import { DefinitionError } from './errors';
 import { TypeHelper } from './typeHelper';
 import { TypeFlag } from './types';
 
@@ -9,6 +10,46 @@ export class Checker {
     private readonly helper: TypeHelper,
     private readonly logger: Logger,
   ) {}
+
+  checkAutoFactories(builder: ContainerBuilder): void {
+    for (const definition of builder.getDefinitions()) {
+      if (!definition.factory && definition.type.isInterface()) {
+        const [signature, method] = this.helper.resolveAutoFactorySignature(definition.type);
+
+        if (!signature) {
+          continue;
+        }
+
+        const [serviceType, async] = this.helper.unwrapAsyncType(signature.getReturnType());
+        const [serviceDef, ...rest] = builder.getByType(serviceType);
+
+        if (!serviceDef) {
+          continue;
+        } else if (rest.length) {
+          throw new DefinitionError(`Multiple services satisfy return type of auto factory '${definition.id}'`);
+        } else if (!serviceDef.factory) {
+          throw new DefinitionError(`Cannot auto-implement factory '${definition.id}': unable to resolve target service factory`);
+        }
+
+        const parameters = signature.getParameters().map((p) => p.getName());
+
+        definition.creates = {
+          method,
+          parameters,
+          async,
+          source: serviceDef.source,
+          path: serviceDef.path,
+          type: serviceDef.type,
+          object: serviceDef.object,
+          explicit: serviceDef.explicit,
+          factory: serviceDef.factory,
+          args: serviceDef.args,
+        };
+
+        builder.unregister(serviceDef.id);
+      }
+    }
+  }
 
   removeExtraneousImplicitRegistrations(builder: ContainerBuilder): void {
     for (const def of builder.getDefinitions()) {

@@ -1,7 +1,7 @@
 import { Logger } from '@debugr/core';
 import { ServiceScope } from 'dicc';
 import { ContainerBuilder } from './containerBuilder';
-import { TypeError, UserError } from './errors';
+import { DefinitionError, TypeError, UserError } from './errors';
 import {
   CallbackInfo,
   ParameterInfo,
@@ -48,6 +48,15 @@ export class Autowiring {
       if (info.factory.async && !info.async) {
         this.logger.trace(`Marking '${info.path}' as async because factory is async`);
         info.async = true;
+      }
+    }
+
+    if (info.creates) {
+      this.logger.trace(`Checking auto-factory '${info.path}' target parameters...`);
+      const injectedParams = info.creates.factory.parameters.filter((p) => !info.creates!.parameters.includes(p.name));
+
+      if (this.checkParameters(builder, injectedParams, `auto-factory '${info.path}'`, scope, info.creates.args) && !info.creates.async) {
+        throw new DefinitionError(`Auto-factory '${info.path}' must return a Promise because target has async dependencies`);
       }
     }
 
@@ -162,7 +171,7 @@ export class Autowiring {
 
     if (!candidates || !candidates.length) {
       if (parameter.flags & TypeFlag.Optional) {
-        this.logger.trace(`Skipping parameter '${parameter.type}' of ${target}: unknown parameter type`);
+        this.logger.trace(`Skipping parameter '${parameter.name}' of ${target}: unknown parameter type`);
         return false;
       }
 
@@ -191,7 +200,7 @@ export class Autowiring {
         throw new TypeError(`Cannot inject locally-scoped service '${candidate.id}' into globally-scoped ${target}`, parameter.type);
       }
 
-      if (candidate.factory?.async && !(parameter.flags & TypeFlag.Async)) {
+      if (candidate.async && !(parameter.flags & TypeFlag.Async)) {
         if (parameter.flags & (TypeFlag.Accessor | TypeFlag.Iterable)) {
           throw new TypeError(`Cannot inject async service '${candidate.id}' into synchronous accessor or iterable parameter '${parameter.name}' of ${target}`, parameter.type);
         }

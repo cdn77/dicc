@@ -13,7 +13,6 @@ import {
   SatisfiesExpression,
   Signature,
   SourceFile,
-  Symbol,
   SyntaxKind,
   Type,
   TypeReferenceNode,
@@ -24,7 +23,6 @@ import { DefinitionError } from './errors';
 import { TypeHelper } from './typeHelper';
 import {
   CallbackInfo,
-  ParameterInfo,
   ResourceOptions,
   ServiceFactoryInfo,
   ServiceHooks,
@@ -240,7 +238,7 @@ export class DefinitionScanner {
 
     const [signature, method] = this.helper.resolveFactorySignature(factoryType);
     const [returnType, async] = this.helper.unwrapAsyncType(signature.getReturnType());
-    const parameters = signature.getParameters().map((param) => this.resolveParameter(param));
+    const parameters = signature.getParameters().map((param) => this.helper.resolveParameterInfo(param));
     return { parameters, returnType, method, async };
   }
 
@@ -312,7 +310,7 @@ export class DefinitionScanner {
     const [, flags] = this.helper.resolveType(signature.getReturnType());
 
     return {
-      parameters: parameters.map((p) => this.resolveParameter(p)),
+      parameters: parameters.map((p) => this.helper.resolveParameterInfo(p)),
       async: Boolean(flags & TypeFlag.Async),
     };
   }
@@ -329,20 +327,6 @@ export class DefinitionScanner {
     }
 
     return undefined;
-  }
-
-  private resolveParameter(symbol: Symbol): ParameterInfo {
-    const name = symbol.getName();
-    const declaration = symbol.getValueDeclarationOrThrow();
-    let [type, flags] = this.helper.resolveType(declaration.getType());
-
-    if (Node.isParameterDeclaration(declaration) && declaration.hasInitializer()) {
-      flags |= TypeFlag.Optional;
-    }
-
-    return type.isClassOrInterface() || type.isObject()
-      ? { name, type, flags }
-      : { name, flags };
   }
 
   private resolveServiceScope(definition?: Expression): ServiceScope | undefined {

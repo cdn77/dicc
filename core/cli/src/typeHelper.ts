@@ -4,7 +4,7 @@ import {
   InterfaceDeclaration,
   Node, Project,
   PropertyName,
-  Signature,
+  Signature, Symbol,
   SyntaxKind,
   Type,
   TypeAliasDeclaration,
@@ -13,7 +13,7 @@ import {
 } from 'ts-morph';
 import { TypeError } from './errors';
 import { ReferenceResolver } from './referenceResolver';
-import { TypeFlag } from './types';
+import { ParameterInfo, TypeFlag } from './types';
 
 export class TypeHelper {
   private readonly refs: ReferenceResolver;
@@ -209,8 +209,41 @@ export class TypeHelper {
     return [this.getFirstSignature(publicCtors, factory), 'constructor'];
   }
 
-  private getFirstSignature([first, ...rest]: Signature[], ctx: Type): Signature {
+  resolveAutoFactorySignature(type: Type): [signature?: Signature, method?: string] {
+    const [prop, ...rest] = type.getProperties();
+
+    if (!prop) {
+      return [this.getFirstSignature(type.getCallSignatures(), type, false)];
+    } else if (prop.getName() !== 'create' || rest.length) {
+      return [];
+    }
+
+    const create = prop.getTypeAtLocation(prop.getDeclarations()[0]);
+    return [this.getFirstSignature(create.getCallSignatures(), type, false), 'create'];
+  }
+
+  resolveParameterInfo(symbol: Symbol): ParameterInfo {
+    const name = symbol.getName();
+    const declaration = symbol.getValueDeclarationOrThrow();
+    let [type, flags] = this.resolveType(declaration.getType());
+
+    if (Node.isParameterDeclaration(declaration) && declaration.hasInitializer()) {
+      flags |= TypeFlag.Optional;
+    }
+
+    return type.isClassOrInterface() || type.isObject()
+      ? { name, type, flags }
+      : { name, flags };
+  }
+
+  private getFirstSignature(signatures: Signature[], ctx: Type, need?: true): Signature;
+  private getFirstSignature(signatures: Signature[], ctx: Type, need: false): Signature | undefined;
+  private getFirstSignature([first, ...rest]: Signature[], ctx: Type, need?: boolean): Signature | undefined {
     if (!first) {
+      if (need === false) {
+        return undefined;
+      }
+
       throw new TypeError(`No call or construct signatures found on service factory`, ctx);
     } else if (rest.length) {
       throw new TypeError(`Multiple overloads on service factories aren't supported`, ctx);

@@ -7,7 +7,7 @@ import {
   ServiceDefinitionInfo,
   CallbackInfo,
   TypeFlag,
-  ContainerOptions,
+  ContainerOptions, AutoFactoryTarget,
 } from './types';
 
 export class Compiler {
@@ -66,6 +66,7 @@ export class Compiler {
             ? fullPath
             : `ServiceType<typeof ${fullPath}>`;
           const fullType = async ? `Promise<${serviceType}>` : serviceType;
+
           !/^#/.test(id) && writer.writeLine(`'${id}': ${fullType};`);
 
           for (const typeAlias of [type, ...aliases]) {
@@ -134,7 +135,7 @@ export class Compiler {
 
   private compileDefinition(
     writer: CodeBlockWriter,
-    { source, id, path, type, factory, args, scope = 'global', async, object, hooks, aliases, decorators }: ServiceDefinitionInfo,
+    { source, id, path, type, factory, args, scope = 'global', async, object, creates, hooks, aliases, decorators }: ServiceDefinitionInfo,
     sources: Map<SourceFile, string>,
   ): void {
     const decoratorMap = getDecoratorMap(decorators, sources);
@@ -174,6 +175,8 @@ export class Compiler {
         }
         // else definition is an object with a factory function with zero parameters and no decorators,
         // so it is already included in the compiled definition courtesy of object spread
+      } else if (creates) {
+        this.compileAutoFactory(writer, src, path, creates, sources);
       } else {
         writer.writeLine(`factory: undefined,`);
       }
@@ -252,6 +255,53 @@ export class Compiler {
     });
 
     writer.write('},\n');
+  }
+
+  private compileAutoFactory(
+    writer: CodeBlockWriter,
+    source: string,
+    path: string,
+    creates: AutoFactoryTarget,
+    sources: Map<SourceFile, string>,
+  ): void {
+    const params = this.compileParameters(creates.factory.parameters, {
+      ...(creates.args ? this.compileArgs(writer, source, path, creates.args) : {}),
+      ...Object.fromEntries(creates.parameters.map((p) => [p, p])),
+    });
+
+    const inject = params.length > 0;
+
+    const writeFactory = () => {
+      writer.conditionalWrite(creates.async, 'async ');
+      writer.write(`(${creates.parameters.join(', ')}) => `);
+
+      this.compileCall(
+        writer,
+        join(
+          ' ',
+          creates.factory.method === 'constructor' && 'new',
+          join('.', sources.get(creates.source), creates.path, creates.object && 'factory', creates.factory.method !== 'constructor' && creates.factory.method),
+        ),
+        params,
+      );
+    };
+
+    writer.write(`factory: `);
+    writer.write(inject ? '(di) => ' : '() => ');
+
+    if (creates.method) {
+      writer.write('({\n');
+      writer.indent(() => {
+        writer.write(`${creates.method}: `);
+        writeFactory();
+        writer.write(',\n');
+      });
+      writer.write('})');
+    } else {
+      writeFactory();
+    }
+
+    writer.write(',\n');
   }
 
   private compileHook(
@@ -446,7 +496,12 @@ function compareIDs(a: string, b: string): number {
 }
 
 function extractSources(definitions: ServiceDefinitionInfo[]): Map<SourceFile, string> {
-  const sources = [...new Set(definitions.flatMap((d) => [d.source, ...d.decorators.map((o) => o.source)]))];
+  const sources = [...new Set(
+    definitions
+      .flatMap((d) => [d.source, ...d.decorators.map((o) => o.source), d.creates?.source])
+      .filter((s): s is SourceFile => s !== undefined)
+  )];
+
   sources.sort(compareSourceFiles);
   const aliases: Record<string, number> = {};
   return new Map(sources.map((s) => [s, extractSourceAlias(s, aliases)]));

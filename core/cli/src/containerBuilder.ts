@@ -11,7 +11,7 @@ export class ContainerBuilder {
   register({ id, type, ...registration }: ServiceRegistrationInfo): void {
     const typeId = this.registerType(type);
     id ??= typeId;
-    const definition = { id, type, ...registration, decorators: [] };
+    const definition = { id, type, ...registration, references: 0, decorators: [] };
     this.definitions.set(id, definition);
     this.registerAlias(id, id);
     this.registerAlias(id, typeId);

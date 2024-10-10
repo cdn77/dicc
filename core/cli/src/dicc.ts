@@ -45,6 +45,7 @@ export class Dicc {
 
     for (const { builder, path } of containers) {
       this.logger.debug(`Post-processing '${path}'...`);
+      this.checker.checkAutoFactories(builder);
       this.logger.trace('Cleaning up...');
       this.checker.removeExtraneousImplicitRegistrations(builder);
       this.logger.trace('Applying decorators...');

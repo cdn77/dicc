@@ -41,9 +41,24 @@ export type ServiceRegistrationInfo = {
   scope?: ServiceScope;
 };
 
+export type AutoFactoryTarget = {
+  method?: string;
+  parameters: string[];
+  async?: boolean;
+  source: SourceFile;
+  path: string;
+  type: Type;
+  object?: boolean;
+  explicit?: boolean;
+  factory: ServiceFactoryInfo;
+  args?: Record<string, CallbackInfo | undefined>;
+};
+
 export type ServiceDefinitionInfo = Omit<ServiceRegistrationInfo, 'id'> & {
   id: string;
   async?: boolean;
+  creates?: AutoFactoryTarget;
+  references: number;
   decorators: ServiceDecoratorInfo[];
 };
 

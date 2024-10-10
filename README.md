@@ -50,6 +50,7 @@ will be inside the resource file (or files).
  - supports _dynamic_ services which are known to the container, but must be
    registered manually in order to be available as dependencies to other
    services
+ - supports _auto-generated service factories_ from interface declarations
  - supports _service decorators_ (not the same thing as `@decorators`) which
    allow some modifications to service definitions without needing to alter the
    definitions themselves
