@@ -2,7 +2,7 @@ import { ServiceScope } from 'dicc';
 import { CodeBlockWriter, SourceFile, Type } from 'ts-morph';
 import { ContainerBuilder } from './containerBuilder';
 import {
-  ParameterInfo,
+  ArgumentInfo,
   ServiceDecoratorInfo,
   ServiceDefinitionInfo,
   CallbackInfo,
@@ -157,9 +157,9 @@ export class Compiler {
       }
 
       if (factory) {
-        if (!object && factory.method !== 'constructor' && !factory.parameters.length && !decoratorMap.decorate.length) {
+        if (!object && factory.method !== 'constructor' && !factory.args.length && !decoratorMap.decorate.length) {
           writer.writeLine(`factory: ${join('.', src, path, factory.method)},`);
-        } else if (!object || factory.method === 'constructor' || factory.parameters.length || decoratorMap.decorate.length) {
+        } else if (!object || factory.method === 'constructor' || factory.args.length || decoratorMap.decorate.length) {
           this.compileFactory(
             writer,
             src,
@@ -168,12 +168,12 @@ export class Compiler {
             factory.method,
             object,
             factory.returnType.isNullable(),
-            factory.parameters,
+            factory.args,
             args,
             decoratorMap.decorate,
           );
         }
-        // else definition is an object with a factory function with zero parameters and no decorators,
+        // else definition is an object with a factory function with zero arguments and no decorators,
         // so it is already included in the compiled definition courtesy of object spread
       } else if (creates) {
         this.compileAutoFactory(writer, src, path, creates, sources);
@@ -184,7 +184,7 @@ export class Compiler {
       for (const hook of ['onCreate', 'onFork', 'onDestroy'] as const) {
         const info = hooks[hook];
 
-        if (info?.parameters.length || decoratorMap[hook].length) {
+        if (info?.args.length || decoratorMap[hook].length) {
           this.compileHook(writer, src, path, hook, info, decoratorMap[hook]);
         }
       }
@@ -201,13 +201,13 @@ export class Compiler {
     method: string | undefined,
     object: boolean | undefined,
     optional: boolean,
-    parameters: ParameterInfo[],
-    args: Record<string, CallbackInfo | undefined> | undefined,
+    args: ArgumentInfo[],
+    argOverrides: Record<string, CallbackInfo | undefined> | undefined,
     decorators: DecoratorInfo[],
   ): void {
-    const params = this.compileParameters(parameters, args && this.compileArgs(writer, source, path, args));
-    const decParams = decorators.map(([,, info]) => this.compileParameters(info.parameters));
-    const inject = params.length > 0 || decParams.some((p) => p.length > 0);
+    const argValues = this.compileArguments(args, argOverrides && this.compileOverrides(writer, source, path, argOverrides));
+    const decArgValues = decorators.map(([,, info]) => this.compileArguments(info.args));
+    const inject = argValues.length > 0 || decArgValues.some((p) => p.length > 0);
 
     writer.write(`factory: `);
     writer.conditionalWrite(async, 'async ');
@@ -222,7 +222,7 @@ export class Compiler {
           async && decorators.length && 'await',
           join('.', source, path, object && 'factory', method !== 'constructor' && method),
         ),
-        params,
+        argValues,
       );
     };
 
@@ -247,9 +247,9 @@ export class Compiler {
 
       for (const [i, [source, path, info]] of decorators.entries()) {
         const last = i + 1 >= decorators.length;
-        writer.conditionalWrite(optional || (i > 0 ? decParams[i - 1] : params).length > 0 || decParams[i].length > 0, '\n');
+        writer.conditionalWrite(optional || (i > 0 ? decArgValues[i - 1] : argValues).length > 0 || decArgValues[i].length > 0, '\n');
         writer.write(last ? 'return ' : 'service = ');
-        this.compileCall(writer, join(' ', info.async && !last && 'await', join('.', source, path, 'decorate')), ['service', ...decParams[i]]);
+        this.compileCall(writer, join(' ', info.async && !last && 'await', join('.', source, path, 'decorate')), ['service', ...decArgValues[i]]);
         writer.write(';\n');
       }
     });
@@ -264,16 +264,16 @@ export class Compiler {
     creates: AutoFactoryTarget,
     sources: Map<SourceFile, string>,
   ): void {
-    const params = this.compileParameters(creates.factory.parameters, {
-      ...(creates.args ? this.compileArgs(writer, source, path, creates.args) : {}),
-      ...Object.fromEntries(creates.parameters.map((p) => [p, p])),
+    const args = this.compileArguments(creates.factory.args, {
+      ...(creates.args ? this.compileOverrides(writer, source, path, creates.args) : {}),
+      ...Object.fromEntries(creates.manualArgs.map((p) => [p, p])),
     });
 
-    const inject = params.length > 0;
+    const inject = args.length > 0;
 
     const writeFactory = () => {
       writer.conditionalWrite(creates.async, 'async ');
-      writer.write(`(${creates.parameters.join(', ')}) => `);
+      writer.write(`(${creates.manualArgs.join(', ')}) => `);
 
       this.compileCall(
         writer,
@@ -282,7 +282,7 @@ export class Compiler {
           creates.factory.method === 'constructor' && 'new',
           join('.', sources.get(creates.source), creates.path, creates.object && 'factory', creates.factory.method !== 'constructor' && creates.factory.method),
         ),
-        params,
+        args,
       );
     };
 
@@ -312,9 +312,9 @@ export class Compiler {
     info: CallbackInfo | undefined,
     decorators: DecoratorInfo[],
   ): void {
-    const params = ['service', ...this.compileParameters(info?.parameters ?? [])];
-    const decParams = decorators.map(([,, info]) => this.compileParameters(info.parameters));
-    const inject = params.length > 1 || decParams.some((p) => p.length > 0);
+    const args = ['service', ...this.compileArguments(info?.args ?? [])];
+    const decoratorArgs = decorators.map(([,, info]) => this.compileArguments(info.args));
+    const inject = args.length > 1 || decoratorArgs.some((p) => p.length > 0);
     const async = info?.async || decorators.some(([,, info]) => info.async);
 
     writer.write(`${hook}: `);
@@ -326,7 +326,7 @@ export class Compiler {
     writer.write(') => ');
 
     if (!decorators.length) {
-      this.compileCall(writer, join('.', source, path, hook), hook === 'onFork' ? ['callback', ...params] : params);
+      this.compileCall(writer, join('.', source, path, hook), hook === 'onFork' ? ['callback', ...args] : args);
       writer.write(',\n');
       return;
     }
@@ -339,20 +339,20 @@ export class Compiler {
           const tmp = new CodeBlockWriter(writer.getOptions());
           tmp.write('async (fork) => {\n');
           tmp.indent(() => {
-            this.compileDecoratorCalls(tmp, decorators, 'fork ?? service', hook, decParams);
+            this.compileDecoratorCalls(tmp, decorators, 'fork ?? service', hook, decoratorArgs);
             tmp.write('return callback(fork);\n');
           });
           tmp.write('}');
-          params.unshift(tmp.toString());
+          args.unshift(tmp.toString());
         }
 
-        this.compileCall(writer, join(' ', hook === 'onFork' ? 'return' : info.async && 'await', join('.', source, path, hook)), params);
+        this.compileCall(writer, join(' ', hook === 'onFork' ? 'return' : info.async && 'await', join('.', source, path, hook)), args);
         writer.write(';\n');
       }
 
       if (!info || hook !== 'onFork') {
-        writer.conditionalWrite(params.length > 1 || decParams[0].length > 0, '\n');
-        this.compileDecoratorCalls(writer, decorators, 'service', hook, decParams);
+        writer.conditionalWrite(args.length > 1 || decoratorArgs[0].length > 0, '\n');
+        this.compileDecoratorCalls(writer, decorators, 'service', hook, decoratorArgs);
       }
 
       if (!info && hook === 'onFork') {
@@ -363,37 +363,37 @@ export class Compiler {
     writer.write('},\n');
   }
 
-  private compileDecoratorCalls(writer: CodeBlockWriter, decorators: DecoratorInfo[], service: string, hook: string, decParams: string[][]): void {
+  private compileDecoratorCalls(writer: CodeBlockWriter, decorators: DecoratorInfo[], service: string, hook: string, decoratorArgs: string[][]): void {
     for (const [i, [source, path, info]] of decorators.entries()) {
-      writer.conditionalWrite(i > 0 && (decParams[i - 1].length > 0 || decParams[i].length > 0), '\n');
-      this.compileCall(writer, join(' ', info.async && 'await', join('.', source, path, hook)), [service, ...decParams[i]]);
+      writer.conditionalWrite(i > 0 && (decoratorArgs[i - 1].length > 0 || decoratorArgs[i].length > 0), '\n');
+      this.compileCall(writer, join(' ', info.async && 'await', join('.', source, path, hook)), [service, ...decoratorArgs[i]]);
       writer.write(';\n');
     }
   }
 
-  private compileCall(writer: CodeBlockWriter, expression: string, params: string[]): void {
+  private compileCall(writer: CodeBlockWriter, expression: string, args: string[]): void {
     writer.write(expression);
     writer.write('(');
 
-    if (params.length > 1) {
+    if (args.length > 1) {
       writer.indent(() => {
-        for (const param of params) {
-          writer.writeLine(`${param},`);
+        for (const arg of args) {
+          writer.writeLine(`${arg},`);
         }
       });
-    } else if (params.length) {
-      writer.write(params[0]);
+    } else if (args.length) {
+      writer.write(args[0]);
     }
 
     writer.write(')');
   }
 
-  private compileArgs(writer: CodeBlockWriter, source: string, path: string, args: Record<string, CallbackInfo | undefined>): Record<string, string> {
-    return Object.fromEntries(Object.entries(args).map(([name, info]) => {
+  private compileOverrides(writer: CodeBlockWriter, source: string, path: string, overrides: Record<string, CallbackInfo | undefined>): Record<string, string> {
+    return Object.fromEntries(Object.entries(overrides).map(([name, info]) => {
       if (info) {
-        const params = this.compileParameters(info.parameters);
+        const args = this.compileArguments(info.args);
         const tmp = new CodeBlockWriter(writer.getOptions());
-        this.compileCall(tmp, join(' ', info.async && 'await', join('.', source, path, 'args', name)), params)
+        this.compileCall(tmp, join(' ', info.async && 'await', join('.', source, path, 'args', name)), args)
         return [name, tmp.toString()];
       } else {
         return [name, join('.', source, path, 'args', name)];
@@ -401,12 +401,12 @@ export class Compiler {
     }));
   }
 
-  private compileParameters(parameters: ParameterInfo[], args?: Record<string, string>): string[] {
+  private compileArguments(args: ArgumentInfo[], overrides?: Record<string, string>): string[] {
     const stmts: string[] = [];
     const undefs: string[] = [];
 
-    for (const param of parameters) {
-      const stmt = args && param.name in args ? args[param.name] : this.compileParameter(param);
+    for (const arg of args) {
+      const stmt = overrides && arg.name in overrides ? overrides[arg.name] : this.compileArgument(arg);
 
       if (stmt === undefined) {
         undefs.push(`undefined`);
@@ -418,46 +418,46 @@ export class Compiler {
     return stmts;
   }
 
-  private compileParameter(param: ParameterInfo): string | undefined {
-    if (param.flags & TypeFlag.Container) {
+  private compileArgument(arg: ArgumentInfo): string | undefined {
+    if (arg.flags & TypeFlag.Container) {
       return 'di';
     }
 
-    const id = param.type && this.builder.getTypeId(param.type);
+    const id = arg.type && this.builder.getTypeId(arg.type);
 
-    if (!param.type || id === undefined) {
+    if (!arg.type || id === undefined) {
       return undefined;
-    } else if (param.flags & TypeFlag.Injector) {
+    } else if (arg.flags & TypeFlag.Injector) {
       return `(service) => di.register('${id}', service)`;
     }
 
-    const paramWantsPromise = Boolean(param.flags & TypeFlag.Async);
-    const paramWantsArray = Boolean(param.flags & TypeFlag.Array);
-    const paramWantsAccessor = Boolean(param.flags & TypeFlag.Accessor);
-    const paramWantsIterable = Boolean(param.flags & TypeFlag.Iterable);
-    const paramIsOptional = Boolean(param.flags & TypeFlag.Optional);
-    const valueIsAsync = this.builder.isAsync(param.type);
-    let method: string = paramWantsArray ? 'find' : 'get';
+    const wantsPromise = Boolean(arg.flags & TypeFlag.Async);
+    const wantsArray = Boolean(arg.flags & TypeFlag.Array);
+    const wantsAccessor = Boolean(arg.flags & TypeFlag.Accessor);
+    const wantsIterable = Boolean(arg.flags & TypeFlag.Iterable);
+    const isOptional = Boolean(arg.flags & TypeFlag.Optional);
+    const valueIsAsync = this.builder.isAsync(arg.type);
+    let method: string = wantsArray ? 'find' : 'get';
     let prefix: string = '';
-    let arg: string = '';
+    let need: string = '';
     let postfix: string = '';
 
-    if (!paramWantsArray && !paramWantsIterable && paramIsOptional) {
-      arg = ', false';
+    if (!wantsArray && !wantsIterable && isOptional) {
+      need = ', false';
     }
 
-    if (paramWantsAccessor) {
-      prefix = `${paramWantsPromise ? 'async ' : ''}() => `;
-    } else if (paramWantsIterable) {
+    if (wantsAccessor) {
+      prefix = `${wantsPromise ? 'async ' : ''}() => `;
+    } else if (wantsIterable) {
       method = 'iterate';
-    } else if (!paramWantsPromise && valueIsAsync) {
+    } else if (!wantsPromise && valueIsAsync) {
       prefix = 'await ';
-    } else if (paramWantsPromise && !valueIsAsync && !paramWantsArray) {
+    } else if (wantsPromise && !valueIsAsync && !wantsArray) {
       prefix = 'Promise.resolve().then(() => ';
       postfix = ')';
     }
 
-    return `${prefix}di.${method}('${id}'${arg})${postfix}`;
+    return `${prefix}di.${method}('${id}'${need})${postfix}`;
   }
 }
 

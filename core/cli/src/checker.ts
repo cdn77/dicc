@@ -31,11 +31,11 @@ export class Checker {
           throw new DefinitionError(`Cannot auto-implement factory '${definition.id}': unable to resolve target service factory`);
         }
 
-        const parameters = signature.getParameters().map((p) => p.getName());
+        const manualArgs = signature.getParameters().map((p) => p.getName());
 
         definition.creates = {
           method,
-          parameters,
+          manualArgs,
           async,
           source: serviceDef.source,
           path: serviceDef.path,
@@ -96,9 +96,9 @@ export class Checker {
       if (!definition.factory) {
         dynamic.add(definition.id);
       } else {
-        for (const param of definition.factory.parameters) {
-          if (param.flags & TypeFlag.Injector) {
-            const [id] = param.type ? builder.getIdsByType(param.type) : []
+        for (const arg of definition.factory.args) {
+          if (arg.flags & TypeFlag.Injector) {
+            const [id] = arg.type ? builder.getIdsByType(arg.type) : []
             injectors.add(id);
           }
         }

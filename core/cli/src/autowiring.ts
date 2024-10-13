@@ -4,7 +4,7 @@ import { ContainerBuilder } from './containerBuilder';
 import { DefinitionError, TypeError, UserError } from './errors';
 import {
   CallbackInfo,
-  ParameterInfo,
+  ArgumentInfo,
   ServiceDecoratorInfo,
   ServiceDefinitionInfo,
   ServiceHooks,
@@ -40,8 +40,8 @@ export class Autowiring {
     const scope = this.resolveScope(info);
 
     if (info.factory) {
-      if (this.checkParameters(builder, info.factory.parameters, `service '${info.path}'`, scope, info.args) && !info.factory.async) {
-        this.logger.trace(`Marking '${info.path}' factory as async because one or more parameters need to be awaited`);
+      if (this.checkArguments(builder, info.factory.args, `service '${info.path}'`, scope, info.args) && !info.factory.async) {
+        this.logger.trace(`Marking '${info.path}' factory as async because one or more arguments need to be awaited`);
         info.factory.async = true;
       }
 
@@ -52,10 +52,10 @@ export class Autowiring {
     }
 
     if (info.creates) {
-      this.logger.trace(`Checking auto-factory '${info.path}' target parameters...`);
-      const injectedParams = info.creates.factory.parameters.filter((p) => !info.creates!.parameters.includes(p.name));
+      this.logger.trace(`Checking auto-factory '${info.path}' target arguments...`);
+      const injectedArgs = info.creates.factory.args.filter((p) => !info.creates!.manualArgs.includes(p.name));
 
-      if (this.checkParameters(builder, injectedParams, `auto-factory '${info.path}'`, scope, info.creates.args) && !info.creates.async) {
+      if (this.checkArguments(builder, injectedArgs, `auto-factory '${info.path}'`, scope, info.creates.args) && !info.creates.async) {
         throw new DefinitionError(`Auto-factory '${info.path}' must return a Promise because target has async dependencies`);
       }
     }
@@ -93,8 +93,8 @@ export class Autowiring {
 
       this.logger.debug(`Checking ${target} '${hook}' hook...`);
 
-      if (this.checkParameters(builder, info.parameters, `'${hook}' hook of ${target}`, scope) && !info.async) {
-        this.logger.trace(`Marking '${hook}' hook of ${target} as async because one or more parameters need to be awaited`);
+      if (this.checkArguments(builder, info.args, `'${hook}' hook of ${target}`, scope) && !info.async) {
+        this.logger.trace(`Marking '${hook}' hook of ${target} as async because one or more arguments need to be awaited`);
         info.async = true;
       }
     }
@@ -120,8 +120,8 @@ export class Autowiring {
     }
 
     if (decorator.decorate) {
-      if (this.checkParameters(builder, decorator.decorate.parameters, `decorator '${decorator.path}'`, scope)) {
-        this.logger.trace(`Marking decorator '${decorator.path}' as async because one or more parameters need to be awaited`);
+      if (this.checkArguments(builder, decorator.decorate.args, `decorator '${decorator.path}'`, scope)) {
+        this.logger.trace(`Marking decorator '${decorator.path}' as async because one or more arguments need to be awaited`);
         decorator.decorate.async = true;
       }
 
@@ -136,25 +136,25 @@ export class Autowiring {
     }
   }
 
-  private checkParameters(
+  private checkArguments(
     builder: ContainerBuilder,
-    parameters: ParameterInfo[],
+    args: ArgumentInfo[],
     target: string,
     scope: ServiceScope,
-    args?: Record<string, CallbackInfo | undefined>,
+    argOverrides?: Record<string, CallbackInfo | undefined>,
   ): boolean {
     let async = false;
 
-    for (const parameter of parameters) {
-      if (args && parameter.name in args) {
-        const arg = args[parameter.name];
+    for (const arg of args) {
+      if (argOverrides && arg.name in argOverrides) {
+        const override = argOverrides[arg.name];
 
-        if (arg && this.checkParameters(builder, arg.parameters, `argument '${parameter.name}' of ${target}`, scope)) {
-          this.logger.trace(`Parameter '${parameter.name}' of ${target} is async`);
+        if (override && this.checkArguments(builder, override.args, `argument '${arg.name}' of ${target}`, scope)) {
+          this.logger.trace(`Argument '${arg.name}' of ${target} is async`);
           async = true;
         }
-      } else if (this.checkParameter(builder, parameter, target, scope)) {
-        this.logger.trace(`Parameter '${parameter.name}' of ${target} is async`);
+      } else if (this.checkArgument(builder, arg, target, scope)) {
+        this.logger.trace(`Argument '${arg.name}' of ${target} is async`);
         async = true;
       }
     }
@@ -162,30 +162,30 @@ export class Autowiring {
     return async;
   }
 
-  private checkParameter(builder: ContainerBuilder, parameter: ParameterInfo, target: string, scope: ServiceScope): boolean {
-    if (parameter.flags & TypeFlag.Container) {
+  private checkArgument(builder: ContainerBuilder, arg: ArgumentInfo, target: string, scope: ServiceScope): boolean {
+    if (arg.flags & TypeFlag.Container) {
       return false;
     }
 
-    const candidates = parameter.type && builder.getByType(parameter.type);
+    const candidates = arg.type && builder.getByType(arg.type);
 
     if (!candidates || !candidates.length) {
-      if (parameter.flags & TypeFlag.Optional) {
-        this.logger.trace(`Skipping parameter '${parameter.name}' of ${target}: unknown parameter type`);
+      if (arg.flags & TypeFlag.Optional) {
+        this.logger.trace(`Skipping argument '${arg.name}' of ${target}: unknown argument type`);
         return false;
       }
 
       throw new TypeError(
-        parameter.flags & TypeFlag.Injector
-          ? `Unknown service type in injector '${parameter.name}' of ${target}`
-          : `Unable to autowire non-optional parameter '${parameter.name}' of ${target}`,
-        parameter.type,
+        arg.flags & TypeFlag.Injector
+          ? `Unknown service type in injector '${arg.name}' of ${target}`
+          : `Unable to autowire non-optional argument '${arg.name}' of ${target}`,
+        arg.type,
       );
-    } else if (candidates.length > 1 && !(parameter.flags & (TypeFlag.Array | TypeFlag.Iterable))) {
-      throw new TypeError(`Multiple services for parameter '${parameter.name}' of ${target} found`, parameter.type);
-    } else if (parameter.flags & TypeFlag.Injector) {
+    } else if (candidates.length > 1 && !(arg.flags & (TypeFlag.Array | TypeFlag.Iterable))) {
+      throw new TypeError(`Multiple services for argument '${arg.name}' of ${target} found`, arg.type);
+    } else if (arg.flags & TypeFlag.Injector) {
       if (candidates[0].scope === 'private') {
-        throw new TypeError(`Cannot inject injector for privately-scoped service '${candidates[0].id}' into ${target}`, parameter.type);
+        throw new TypeError(`Cannot inject injector for privately-scoped service '${candidates[0].id}' into ${target}`, arg.type);
       }
 
       return false;
@@ -196,13 +196,13 @@ export class Autowiring {
     for (const candidate of candidates) {
       this.checkServiceDependencies(builder, candidate);
 
-      if (scope === 'global' && candidate.scope === 'local' && !(parameter.flags & TypeFlag.Accessor)) {
-        throw new TypeError(`Cannot inject locally-scoped service '${candidate.id}' into globally-scoped ${target}`, parameter.type);
+      if (scope === 'global' && candidate.scope === 'local' && !(arg.flags & TypeFlag.Accessor)) {
+        throw new TypeError(`Cannot inject locally-scoped service '${candidate.id}' into globally-scoped ${target}`, arg.type);
       }
 
-      if (candidate.async && !(parameter.flags & TypeFlag.Async)) {
-        if (parameter.flags & (TypeFlag.Accessor | TypeFlag.Iterable)) {
-          throw new TypeError(`Cannot inject async service '${candidate.id}' into synchronous accessor or iterable parameter '${parameter.name}' of ${target}`, parameter.type);
+      if (candidate.async && !(arg.flags & TypeFlag.Async)) {
+        if (arg.flags & (TypeFlag.Accessor | TypeFlag.Iterable)) {
+          throw new TypeError(`Cannot inject async service '${candidate.id}' into synchronous accessor or iterable argument '${arg.name}' of ${target}`, arg.type);
         }
 
         async = true;
@@ -215,27 +215,27 @@ export class Autowiring {
   private checkCyclicDependencies(builder: ContainerBuilder, definition: ServiceDefinitionInfo): void {
     this.checkCyclicDependency(definition.id);
 
-    for (const param of definition.factory?.parameters ?? []) {
-      this.checkParameterDependencies(builder, param);
+    for (const arg of definition.factory?.args ?? []) {
+      this.checkArgumentDependencies(builder, arg);
     }
 
-    for (const param of definition.hooks?.onCreate?.parameters ?? []) {
-      this.checkParameterDependencies(builder, param);
+    for (const arg of definition.hooks?.onCreate?.args ?? []) {
+      this.checkArgumentDependencies(builder, arg);
     }
 
-    for (const param of definition.decorators.flatMap((d) => [...d.decorate?.parameters ?? [], ...d.hooks.onCreate?.parameters ?? []])) {
-      this.checkParameterDependencies(builder, param);
+    for (const arg of definition.decorators.flatMap((d) => [...d.decorate?.args ?? [], ...d.hooks.onCreate?.args ?? []])) {
+      this.checkArgumentDependencies(builder, arg);
     }
 
     this.releaseCyclicDependencyCheck(definition.id);
   }
 
-  private checkParameterDependencies(builder: ContainerBuilder, param: ParameterInfo): void {
-    if (param.flags & (TypeFlag.Async | TypeFlag.Accessor | TypeFlag.Iterable)) {
+  private checkArgumentDependencies(builder: ContainerBuilder, arg: ArgumentInfo): void {
+    if (arg.flags & (TypeFlag.Async | TypeFlag.Accessor | TypeFlag.Iterable)) {
       return;
     }
 
-    const candidates = param.type && builder.getByType(param.type);
+    const candidates = arg.type && builder.getByType(arg.type);
 
     for (const candidate of candidates ?? []) {
       this.checkCyclicDependencies(builder, candidate);

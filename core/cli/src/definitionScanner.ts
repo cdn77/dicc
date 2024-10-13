@@ -238,8 +238,8 @@ export class DefinitionScanner {
 
     const [signature, method] = this.helper.resolveFactorySignature(factoryType);
     const [returnType, async] = this.helper.unwrapAsyncType(signature.getReturnType());
-    const parameters = signature.getParameters().map((param) => this.helper.resolveParameterInfo(param));
-    return { parameters, returnType, method, async };
+    const args = signature.getParameters().map((arg) => this.helper.resolveArgumentInfo(arg));
+    return { args, returnType, method, async };
   }
 
   private resolveServiceArgs(definition?: Expression): Record<string, CallbackInfo | undefined> | undefined {
@@ -306,11 +306,11 @@ export class DefinitionScanner {
       return undefined;
     }
 
-    const parameters = signature.getParameters().slice(skip);
+    const args = signature.getParameters().slice(skip);
     const [, flags] = this.helper.resolveType(signature.getReturnType());
 
     return {
-      parameters: parameters.map((p) => this.helper.resolveParameterInfo(p)),
+      args: args.map((p) => this.helper.resolveArgumentInfo(p)),
       async: Boolean(flags & TypeFlag.Async),
     };
   }

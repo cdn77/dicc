@@ -15,7 +15,7 @@ import {
 } from 'ts-morph';
 import { TypeError } from './errors';
 import { ReferenceResolver } from './referenceResolver';
-import { ParameterInfo, TypeFlag } from './types';
+import { ArgumentInfo, TypeFlag } from './types';
 
 export class TypeHelper {
   private readonly refs: ReferenceResolver;
@@ -66,15 +66,15 @@ export class TypeHelper {
     const signatures = type.getCallSignatures();
 
     if (signatures.length === 1) {
-      const params = signatures[0].getParameters();
+      const args = signatures[0].getParameters();
       const returnType = signatures[0].getReturnType();
 
-      if (params.length === 0) {
+      if (args.length === 0) {
         flags |= TypeFlag.Accessor;
         type = returnType;
-      } else if (params.length === 1 && returnType.getText() === 'void') {
+      } else if (args.length === 1 && returnType.getText() === 'void') {
         flags |= TypeFlag.Injector;
-        type = params[0].getValueDeclarationOrThrow().getType();
+        type = args[0].getValueDeclarationOrThrow().getType();
       }
     }
 
@@ -224,7 +224,7 @@ export class TypeHelper {
     return [this.getFirstSignature(create.getCallSignatures(), type, false), 'create'];
   }
 
-  resolveParameterInfo(symbol: Symbol): ParameterInfo {
+  resolveArgumentInfo(symbol: Symbol): ArgumentInfo {
     const name = symbol.getName();
     const declaration = symbol.getValueDeclarationOrThrow();
     let [type, flags] = this.resolveType(declaration.getType());

@@ -43,7 +43,7 @@ export type ServiceRegistrationInfo = {
 
 export type AutoFactoryTarget = {
   method?: string;
-  parameters: string[];
+  manualArgs: string[];
   async?: boolean;
   source: SourceFile;
   path: string;
@@ -72,7 +72,7 @@ export type ServiceDecoratorInfo = {
 };
 
 export type ServiceFactoryInfo = {
-  parameters: ParameterInfo[];
+  args: ArgumentInfo[];
   returnType: Type;
   method?: string;
   async?: boolean;
@@ -85,11 +85,11 @@ export type ServiceHooks = {
 };
 
 export type CallbackInfo = {
-  parameters: ParameterInfo[];
+  args: ArgumentInfo[];
   async?: boolean;
 };
 
-export type ParameterInfo = {
+export type ArgumentInfo = {
   name: string;
   type?: Type;
   flags: TypeFlag;
