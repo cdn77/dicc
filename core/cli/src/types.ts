@@ -58,7 +58,6 @@ export type ServiceDefinitionInfo = Omit<ServiceRegistrationInfo, 'id'> & {
   id: string;
   async?: boolean;
   creates?: AutoFactoryTarget;
-  references: number;
   decorators: ServiceDecoratorInfo[];
 };
 

@@ -68,6 +68,11 @@ function createEmptyOutput(className: string): string {
   const declaration = className === 'default' ? 'default class' : `class ${className}`;
   return `
 import { Container } from 'dicc';
-export ${declaration} extends Container<{}> {}
+
+export ${declaration} extends Container<{}> {
+  constructor() {
+    super({});
+  }
+}
 `;
 }
