@@ -4,8 +4,8 @@ import { SourceFile } from 'ts-morph';
 import { ContainerBuilder } from './containerBuilder';
 import { DefinitionError, TypeError, UserError } from './errors';
 import {
-  CallbackInfo,
   ArgumentInfo,
+  ArgumentOverrideMap,
   ServiceDecoratorInfo,
   ServiceDefinitionInfo,
   ServiceHooks,
@@ -59,6 +59,17 @@ export class Autowiring {
 
     this.logger.debug(`Checking ${desc} dependencies...`);
     const scope = this.resolveScope(info);
+
+    if (info.container) {
+      const src = info.type.getSymbolOrThrow().getValueDeclarationOrThrow().getSourceFile();
+      const params = this.containers.get(src)?.getParametersInfo();
+
+      if (params && info.factory?.method === 'constructor' && !info.factory.args.length) {
+        info.factory.args = [
+          { name: 'parameters', type: params.type, flags: TypeFlag.None },
+        ];
+      }
+    }
 
     if (info.factory) {
       if (info.parent) {
@@ -182,7 +193,7 @@ export class Autowiring {
     args: ArgumentInfo[],
     target: string,
     scope: ServiceScope,
-    argOverrides?: Record<string, CallbackInfo | undefined>,
+    argOverrides?: ArgumentOverrideMap,
   ): boolean {
     let async = false;
 
@@ -190,7 +201,7 @@ export class Autowiring {
       if (argOverrides && arg.name in argOverrides) {
         const override = argOverrides[arg.name];
 
-        if (override && this.checkArguments(builder, override.args, `argument '${arg.name}' of ${target}`, scope)) {
+        if (typeof override === 'object' && this.checkArguments(builder, override.args, `argument '${arg.name}' of ${target}`, scope)) {
           this.logger.trace(`Argument '${arg.name}' of ${target} is async`);
           async = true;
         }
@@ -208,21 +219,54 @@ export class Autowiring {
       return false;
     }
 
-    const candidates = arg.type && builder.getByType(arg.type);
+    if (!arg.type) {
+      return this.checkOptional(arg, target);
+    }
 
-    if (!candidates || !candidates.length) {
-      if (arg.flags & TypeFlag.Optional) {
-        this.logger.trace(`Skipping argument '${arg.name}' of ${target}: unknown argument type`);
-        return false;
-      }
+    const services = builder.getByType(arg.type);
 
+    if (services.length) {
+      return this.checkServiceCandidates(builder, arg, target, scope, services);
+    }
+
+    const parameters = builder.getParametersByType(arg.type);
+
+    if (!parameters) {
+      return this.checkOptional(arg, target);
+    }
+
+    if (arg.flags & ~(TypeFlag.Optional | TypeFlag.Array)) {
       throw new TypeError(
-        arg.flags & TypeFlag.Injector
-          ? `Unknown service type in injector '${arg.name}' of ${target}`
-          : `Unable to autowire non-optional argument '${arg.name}' of ${target}`,
+        `Container parameters cannot be injected into iterables, async arguments, accessors, or injectors`,
         arg.type,
       );
-    } else if (candidates.length > 1 && !(arg.flags & (TypeFlag.Array | TypeFlag.Iterable))) {
+    }
+
+    if ('nestedTypes' in parameters) {
+      if (this.checkMultiple(arg)) {
+        throw new TypeError(
+          `Cannot inject container parameters into array argument '${arg.name}' of ${target}`,
+          arg.type,
+        );
+      }
+
+      return false;
+    }
+
+    if (Boolean(parameters.flags & TypeFlag.Array) !== this.checkMultiple(arg)) {
+      const [p, a] = parameters.flags & TypeFlag.Array ? ['', 'non-'] : ['non-', ''];
+
+      throw new TypeError(
+        `Cannot inject ${p}array parameter '${parameters.path}' into ${a}array argument '${arg.name}' of ${target}`,
+        arg.type,
+      );
+    }
+
+    return false;
+  }
+
+  private checkServiceCandidates(builder: ContainerBuilder, arg: ArgumentInfo, target: string, scope: ServiceScope, candidates: ServiceDefinitionInfo[]): boolean {
+    if (candidates.length > 1 && !this.checkMultiple(arg)) {
       throw new TypeError(`Multiple services for argument '${arg.name}' of ${target} found`, arg.type);
     } else if (arg.flags & TypeFlag.Injector) {
       if (candidates[0].scope === 'private') {
@@ -251,6 +295,24 @@ export class Autowiring {
     }
 
     return async;
+  }
+
+  private checkOptional(arg: ArgumentInfo, target: string): boolean {
+    if (arg.flags & TypeFlag.Optional) {
+      this.logger.trace(`Skipping argument '${arg.name}' of ${target}: unknown argument type`);
+      return false;
+    }
+
+    throw new TypeError(
+      arg.flags & TypeFlag.Injector
+        ? `Unknown service type in injector '${arg.name}' of ${target}`
+        : `Unable to autowire non-optional argument '${arg.name}' of ${target}`,
+      arg.type,
+    );
+  }
+
+  private checkMultiple(arg: ArgumentInfo): boolean {
+    return Boolean(arg.flags & (TypeFlag.Array | TypeFlag.Iterable));
   }
 
   private checkCyclicDependencies(builder: ContainerBuilder, definition: ServiceDefinitionInfo): void {

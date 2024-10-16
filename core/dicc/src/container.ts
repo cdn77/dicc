@@ -6,11 +6,15 @@ import {
   CompiledServiceDefinitionMap,
   CompiledServiceForkHook,
   CompiledSyncServiceDefinition,
+  ContainerParameters,
   FindResult,
   GetResult,
+  InvalidParameterPathError,
   IterateResult,
+  Parameter,
   ServiceMap,
   ServiceScope,
+  UnknownParameterError,
 } from './types';
 import {
   createAsyncIterator,
@@ -18,17 +22,19 @@ import {
   isPromiseLike,
 } from './utils';
 
-export class Container<Services extends Record<string, any> = {}> {
+export class Container<Services extends Record<string, any> = {}, Parameters extends ContainerParameters = {}> {
   readonly [ServiceMap]?: Services;
 
-  private readonly definitions: Map<string, CompiledServiceDefinition> = new Map();
+  private readonly parameters: Parameters;
+  private readonly definitions: Map<string, CompiledServiceDefinition<any, Services, Parameters>> = new Map();
   private readonly aliases: Map<string, string[]> = new Map();
   private readonly globalServices: Store = new Store();
   private readonly localServices: AsyncLocalStorage<Store> = new AsyncLocalStorage();
-  private readonly forkHooks: [string, CompiledServiceForkHook<any>][] = [];
+  private readonly forkHooks: [string, CompiledServiceForkHook<any, Services, Parameters>][] = [];
   private readonly creating: Set<string> = new Set();
 
-  constructor(definitions: CompiledServiceDefinitionMap<Services>) {
+  constructor(parameters: Parameters, definitions: CompiledServiceDefinitionMap<Services, Parameters>) {
+    this.parameters = parameters;
     this.importDefinitions(definitions);
   }
 
@@ -88,6 +94,78 @@ export class Container<Services extends Record<string, any> = {}> {
     }
   }
 
+  getParameters(): Parameters {
+    return this.parameters;
+  }
+
+  resolveParameter<P extends string>(path: P, need?: true): Parameter<Parameters, P>;
+  resolveParameter<P extends string>(path: P, need: false): Parameter<Parameters, P> | undefined;
+  resolveParameter<P extends string>(path: P, need?: boolean): Parameter<Parameters, P> | undefined {
+    try {
+      return this.doResolveParameter(path);
+    } catch (e: unknown) {
+      if (e instanceof UnknownParameterError && need === false) {
+        return undefined;
+      }
+
+      throw e;
+    }
+  }
+
+  expand(value: string, need?: true): string;
+  expand(value: string, need: false): string | undefined;
+  expand(value: string, need?: boolean): string | undefined {
+    try {
+      return value.replace(/%([a-z0-9_.]+)%/gi, (_, path) => this.doResolveParameter(path));
+    } catch (e: unknown) {
+      if (e instanceof UnknownParameterError && need === false) {
+        return undefined;
+      }
+
+      throw e;
+    }
+  }
+
+  private doResolveParameter(path: string): any {
+    const tokens = path.split(/\./g);
+    let cursor: any = this.parameters;
+
+    for (let i = 0; i < tokens.length; ++i) {
+      const token = tokens[i];
+
+      if (typeof cursor !== 'object' || cursor === null) {
+        throw new InvalidParameterPathError(tokens.slice(0, i).join('.'));
+      }
+
+      if (!(token in cursor)) {
+        throw new UnknownParameterError(tokens.slice(0, i).join('.'));
+      }
+
+      cursor = cursor[token];
+    }
+
+    return this.expandTree(cursor);
+  }
+
+  private expandTree(value: any): any {
+    if (typeof value === 'string') {
+      return this.expand(value);
+    }
+
+    if (Array.isArray(value)) {
+      return value.map((v) => this.expandTree(v));
+    }
+
+    if (typeof value !== 'object' || value === null) {
+      return value;
+    }
+
+    return Object.fromEntries(Object.entries(value).map(([k, v]) => [
+      this.expand(k),
+      this.expandTree(v),
+    ]));
+  }
+
   async fork<R>(cb: () => Promise<R>): Promise<R> {
     const parent = this.currentStore;
     const store = new Store(parent);
@@ -128,7 +206,7 @@ export class Container<Services extends Record<string, any> = {}> {
     this.globalServices.clear();
   }
 
-  private importDefinitions(definitions: CompiledServiceDefinitionMap<Services>): void {
+  private importDefinitions(definitions: CompiledServiceDefinitionMap<Services, Parameters>): void {
     for (const [id, definition] of Object.entries(definitions)) {
       this.definitions.set(id, definition)
       this.aliases.set(id, [id]);
@@ -190,7 +268,7 @@ export class Container<Services extends Record<string, any> = {}> {
       : this.createInstanceSync(id, definition, need);
   }
 
-  private createInstanceSync<T>(id: string, definition: CompiledSyncServiceDefinition<T>, need: boolean = true): T | undefined {
+  private createInstanceSync<T>(id: string, definition: CompiledSyncServiceDefinition<T, Services, Parameters>, need: boolean = true): T | undefined {
     const service = definition.factory(this);
     this.getStore(definition.scope)?.set(id, service);
     service && definition.onCreate && definition.onCreate(service, this);
@@ -203,7 +281,7 @@ export class Container<Services extends Record<string, any> = {}> {
     return service;
   }
 
-  private createInstanceAsync<T>(id: string, definition: CompiledAsyncServiceDefinition<T>, need: boolean = true): Promise<T | undefined> {
+  private createInstanceAsync<T>(id: string, definition: CompiledAsyncServiceDefinition<T, Services, Parameters>, need: boolean = true): Promise<T | undefined> {
     const servicePromise = Promise.resolve()       // needed so that definition.factory()
       .then(async () => definition.factory(this))  // is never called synchronously
       .then(async (service) => {

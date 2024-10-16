@@ -22,6 +22,7 @@ import { ContainerBuilder } from './containerBuilder';
 import { DefinitionError } from './errors';
 import { TypeHelper } from './typeHelper';
 import {
+  ArgumentOverrideMap,
   CallbackInfo,
   ResourceOptions,
   ServiceFactoryInfo,
@@ -156,7 +157,20 @@ export class DefinitionScanner {
       return;
     }
 
-    this.registerService(ctx, node.getType(), this.helper.resolveInterfaceTypes(node));
+    const type = node.getType();
+    const aliases = this.helper.resolveInterfaceTypes(node);
+    const nestedTypes = this.helper.resolveNestedContainerParameters(node, type, aliases);
+
+    if (nestedTypes) {
+      ctx.builder.setParametersInfo({
+        source: ctx.source,
+        path: ctx.path.replace(/\.$/, ''),
+        type,
+        nestedTypes,
+      });
+    } else {
+      this.registerService(ctx, type, aliases);
+    }
   }
 
   private scanVariableDeclaration(ctx: ScanContext, node: VariableDeclaration): void {
@@ -251,7 +265,7 @@ export class DefinitionScanner {
     return { args, returnType, method, async };
   }
 
-  private resolveServiceArgs(definition?: Expression): Record<string, CallbackInfo | undefined> | undefined {
+  private resolveServiceArgs(definition?: Expression): ArgumentOverrideMap | undefined {
     if (!Node.isObjectLiteralExpression(definition)) {
       return undefined;
     }
@@ -270,14 +284,25 @@ export class DefinitionScanner {
       throw new DefinitionError(`Invalid 'args', must be an object literal`, argsInit ?? argsProp);
     }
 
-    const args: Record<string, CallbackInfo | undefined> = {};
+    const args: ArgumentOverrideMap = {};
 
     for (const arg of argsInit.getProperties()) {
       if (!Node.isPropertyAssignment(arg)) {
         throw new DefinitionError(`Invalid 'args' property, 'args' must be a plain object literal`, arg ?? argsInit);
       }
 
-      args[arg.getName()] = this.resolveCallbackInfo(arg);
+      const name = arg.getName();
+      const initializer = arg.getInitializer();
+
+      if (Node.isStringLiteral(initializer)) {
+        const value = initializer.getLiteralValue();
+
+        if (/%[a-z0-9_.]+%/i.test(value)) {
+          args[name] = value;
+        }
+      } else {
+        args[name] = this.resolveCallbackInfo(arg);
+      }
     }
 
     return args;

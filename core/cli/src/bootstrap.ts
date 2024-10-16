@@ -28,7 +28,7 @@ interface Services {
 
 export class DiccContainer extends Container<Services>{
   constructor() {
-    super({
+    super({}, {
       'debug.logger': {
         ...definitions0.debug.logger,
         aliases: ['#Logger.0'],

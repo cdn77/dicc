@@ -38,7 +38,7 @@ export type ServiceRegistrationInfo = {
   container?: boolean;
   parent?: string;
   factory?: ServiceFactoryInfo;
-  args?: Record<string, CallbackInfo | undefined>;
+  args?: ArgumentOverrideMap;
   hooks: ServiceHooks;
   scope?: ServiceScope;
 };
@@ -53,7 +53,7 @@ export type AutoFactoryTarget = {
   object?: boolean;
   explicit?: boolean;
   factory: ServiceFactoryInfo;
-  args?: Record<string, CallbackInfo | undefined>;
+  args?: ArgumentOverrideMap;
 };
 
 export type ServiceDefinitionInfo = Omit<ServiceRegistrationInfo, 'id'> & {
@@ -91,6 +91,10 @@ export type CallbackInfo = {
   async?: boolean;
 };
 
+export type ArgumentOverrideMap = {
+  [arg: string]: CallbackInfo | string | undefined;
+};
+
 export type ArgumentInfo = {
   name: string;
   type?: Type;
@@ -107,6 +111,18 @@ export enum TypeFlag {
   Injector  = 0b0100000,
   Container = 0b1000000,
 }
+
+export type ContainerParametersInfo = {
+  source: SourceFile;
+  path: string;
+  type: Type;
+  nestedTypes: Map<Type, NestedParameterInfo>;
+};
+
+export type NestedParameterInfo = {
+  path: string;
+  flags: TypeFlag;
+};
 
 export type ResolvedReference<K extends SyntaxKind> =
   K extends SyntaxKind.TypeAliasDeclaration

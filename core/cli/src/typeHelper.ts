@@ -15,11 +15,12 @@ import {
 } from 'ts-morph';
 import { TypeError } from './errors';
 import { ReferenceResolver } from './referenceResolver';
-import { ArgumentInfo, TypeFlag } from './types';
+import { ArgumentInfo, NestedParameterInfo, TypeFlag } from './types';
 
 export class TypeHelper {
   private readonly refs: ReferenceResolver;
   private containerType?: Type;
+  private containerParametersType?: Type;
   private serviceMapSymbolType?: Type;
 
   constructor(private readonly project: Project) {
@@ -308,20 +309,16 @@ export class TypeHelper {
     }
   }
 
-  getContainerType(): Type {
-    return this.containerType ??= this.resolveRootType(this.refs.get('Container', SyntaxKind.ClassDeclaration).getType());
-  }
-
   isContainer(type: Type): boolean {
     if (!type.isClass()) {
       return false;
     }
 
-    const container = this.getContainerType();
+    this.containerType ??= this.resolveRootType(this.refs.get('Container', SyntaxKind.ClassDeclaration).getType());
     const queue: Type[] = [type];
 
     for (let t = queue.shift(); t !== undefined; t = queue.shift()) {
-      if (this.resolveRootType(t) === container) {
+      if (this.resolveRootType(t) === this.containerType) {
         return true;
       }
 
@@ -331,7 +328,45 @@ export class TypeHelper {
     return false;
   }
 
-  getServiceMapSymbolType(): Type {
+  resolveNestedContainerParameters(declaration: InterfaceDeclaration, type: Type, aliases: Type[]): Map<Type, NestedParameterInfo> | undefined {
+    this.containerParametersType ??= this.resolveRootType(this.refs.get('ContainerParameters', SyntaxKind.InterfaceDeclaration).getType());
+
+    if (type !== this.containerParametersType && !aliases.includes(this.containerParametersType)) {
+      return undefined;
+    }
+
+    const map: Map<Type, NestedParameterInfo> = new Map();
+    const queue: [type: Type, path: string, flags: TypeFlag][] = [[type, '', TypeFlag.None]];
+
+    while (queue.length) {
+      const [parent, path, flags] = queue.shift()!;
+
+      for (const prop of parent.getProperties()) {
+        let [ptype, pflags] = this.resolveNullable(prop.getTypeAtLocation(declaration), flags);
+        const ppath = `${path}${prop.getName()}`;
+
+        if (ptype.isArray()) {
+          ptype = ptype.getArrayElementTypeOrThrow();
+          pflags |= TypeFlag.Array;
+        }
+
+        if (!ptype.isAnonymous()) {
+          map.set(ptype, {
+            path: ppath,
+            flags: pflags,
+          });
+        }
+
+        if (!(pflags & TypeFlag.Array) && (ptype.isObject() || ptype.isClass() || ptype.isInterface())) {
+          queue.push([ptype, `${ppath}.`, pflags]);
+        }
+      }
+    }
+
+    return map;
+  }
+
+  private getServiceMapSymbolType(): Type {
     return this.serviceMapSymbolType ??= this.refs.get('ServiceMap', SyntaxKind.VariableDeclaration).getType();
   }
 }

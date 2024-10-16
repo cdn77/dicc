@@ -1,6 +1,8 @@
 import { SourceFile, Type } from 'ts-morph';
+import { DefinitionError } from './errors';
 import {
   ContainerOptions,
+  ContainerParametersInfo, NestedParameterInfo,
   ServiceDecoratorInfo,
   ServiceDefinitionInfo,
   ServiceRegistrationInfo,
@@ -12,6 +14,7 @@ export class ContainerBuilder {
   private readonly typeIds: Set<string> = new Set();
   private readonly aliases: Map<string, Set<string>> = new Map();
   private readonly decorators: Map<string, ServiceDecoratorInfo[]> = new Map();
+  private parameters?: ContainerParametersInfo;
 
   constructor(
     readonly path: string,
@@ -72,6 +75,33 @@ export class ContainerBuilder {
     for (const definition of decorated) {
       definition.decorators.sort((a, b) => b.priority - a.priority);
     }
+  }
+
+  setParametersInfo(info: ContainerParametersInfo): void {
+    if (this.parameters) {
+      throw new DefinitionError(
+        'Multiple container parameter type definitions',
+        info.type.getSymbol()?.getValueDeclaration(),
+      );
+    }
+
+    this.parameters = info;
+  }
+
+  getParametersInfo(): ContainerParametersInfo | undefined {
+    return this.parameters;
+  }
+
+  getParametersByType(type: Type): ContainerParametersInfo | NestedParameterInfo | undefined {
+    if (!this.parameters) {
+      return undefined;
+    }
+
+    if (type === this.parameters.type) {
+      return this.parameters;
+    }
+
+    return this.parameters.nestedTypes.get(type);
   }
 
   has(id: string): boolean {

@@ -3,11 +3,13 @@ import { CodeBlockWriter, SourceFile, Type } from 'ts-morph';
 import { ContainerBuilder } from './containerBuilder';
 import {
   ArgumentInfo,
+  ArgumentOverrideMap,
+  AutoFactoryTarget,
+  CallbackInfo,
+  ContainerParametersInfo,
   ServiceDecoratorInfo,
   ServiceDefinitionInfo,
-  CallbackInfo,
   TypeFlag,
-  AutoFactoryTarget,
 } from './types';
 
 export class Compiler {
@@ -19,7 +21,7 @@ export class Compiler {
     const definitions = [...this.builder.getDefinitions()].sort(
       (a, b) => compareIDs(a.parent ?? '', b.parent ?? '') || compareIDs(a.id, b.id),
     );
-    const sources = extractSources(definitions);
+    const sources = extractSources(definitions, this.builder.getParametersInfo());
 
     this.builder.output.replaceWithText('');
 
@@ -125,13 +127,14 @@ export class Compiler {
       const declaration = this.builder.options.className === 'default'
         ? 'default class'
         : `class ${this.builder.options.className}`;
+      const [paramType, ctorArgs, superArgs] = this.compileContainerParameters(sources);
 
-      writer.writeLine(`\nexport ${declaration} extends Container<Services>{`);
+      writer.writeLine(`\nexport ${declaration} extends Container<Services${paramType}>{`);
 
       writer.indent(() => {
-        writer.writeLine('constructor() {');
+        writer.writeLine(`constructor(${ctorArgs}) {`);
         writer.indent(() => {
-          writer.writeLine('super({');
+          writer.writeLine(`super(${superArgs}, {`);
           writer.indent(() => {
             for (const definition of definitions) {
               this.compileDefinition(writer, definition, sources);
@@ -144,6 +147,22 @@ export class Compiler {
 
       writer.writeLine('}\n');
     });
+  }
+
+  private compileContainerParameters(sources: Map<SourceFile, string>): [type: string, ctorArgs: string, superArgs: string] {
+    const info = this.builder.getParametersInfo();
+
+    if (!info) {
+      return ['', '', '{}'];
+    }
+
+    const type = join('.', sources.get(info.source), info.path);
+
+    return [
+      `, ${type}`,
+      `parameters: ${type}`,
+      'parameters',
+    ];
   }
 
   private compileDefinition(
@@ -243,7 +262,7 @@ export class Compiler {
     object: boolean | undefined,
     optional: boolean,
     args: ArgumentInfo[],
-    argOverrides: Record<string, CallbackInfo | undefined> | undefined,
+    argOverrides: ArgumentOverrideMap | undefined,
     decorators: DecoratorInfo[],
   ): void {
     const argValues = this.compileArguments(args, argOverrides && this.compileOverrides(writer, source, path, argOverrides));
@@ -429,15 +448,23 @@ export class Compiler {
     writer.write(')');
   }
 
-  private compileOverrides(writer: CodeBlockWriter, source: string, path: string, overrides: Record<string, CallbackInfo | undefined>): Record<string, string> {
+  private compileOverrides(writer: CodeBlockWriter, source: string, path: string, overrides: ArgumentOverrideMap): Record<string, string> {
     return Object.fromEntries(Object.entries(overrides).map(([name, info]) => {
-      if (info) {
-        const args = this.compileArguments(info.args);
-        const tmp = new CodeBlockWriter(writer.getOptions());
-        this.compileCall(tmp, join(' ', info.async && 'await', join('.', source, path, 'args', name)), args)
-        return [name, tmp.toString()];
-      } else {
-        return [name, join('.', source, path, 'args', name)];
+      switch (typeof info) {
+        case 'object': {
+          const args = this.compileArguments(info.args);
+          const tmp = new CodeBlockWriter(writer.getOptions());
+          this.compileCall(tmp, join(' ', info.async && 'await', join('.', source, path, 'args', name)), args)
+          return [name, tmp.toString()];
+        }
+        case 'string': {
+          const [method, arg] = /^%[a-z0-9_.]+$/i.test(info)
+            ? ['resolveParameter', info.slice(1, -1)]
+            : ['expand', info];
+          return [name, `di.${method}('${arg}')`];
+        }
+        default:
+          return [name, join('.', source, path, 'args', name)];
       }
     }));
   }
@@ -462,22 +489,41 @@ export class Compiler {
   private compileArgument(arg: ArgumentInfo): string | undefined {
     if (arg.flags & TypeFlag.Container) {
       return 'di';
+    } else if (!arg.type) {
+      return undefined;
     }
 
-    const id = arg.type && this.builder.getTypeId(arg.type);
+    const id = this.builder.getTypeId(arg.type);
 
-    if (!arg.type || id === undefined) {
+    if (id !== undefined) {
+      return this.compileServiceInjection(arg.type, arg.flags, id);
+    }
+
+    const parameters = this.builder.getParametersByType(arg.type);
+
+    if (!parameters) {
       return undefined;
-    } else if (arg.flags & TypeFlag.Injector) {
+    }
+
+    if ('nestedTypes' in parameters) {
+      return 'di.getParameters()';
+    }
+
+    const optional = arg.flags & TypeFlag.Optional ? `, false` : '';
+    return `di.resolveParameter('${parameters.path}'${optional})`;
+  }
+
+  private compileServiceInjection(type: Type, flags: TypeFlag, id: string): string {
+    if (flags & TypeFlag.Injector) {
       return `(service) => di.register('${id}', service)`;
     }
 
-    const wantsPromise = Boolean(arg.flags & TypeFlag.Async);
-    const wantsArray = Boolean(arg.flags & TypeFlag.Array);
-    const wantsAccessor = Boolean(arg.flags & TypeFlag.Accessor);
-    const wantsIterable = Boolean(arg.flags & TypeFlag.Iterable);
-    const isOptional = Boolean(arg.flags & TypeFlag.Optional);
-    const valueIsAsync = this.builder.isAsync(arg.type);
+    const wantsPromise = Boolean(flags & TypeFlag.Async);
+    const wantsArray = Boolean(flags & TypeFlag.Array);
+    const wantsAccessor = Boolean(flags & TypeFlag.Accessor);
+    const wantsIterable = Boolean(flags & TypeFlag.Iterable);
+    const isOptional = Boolean(flags & TypeFlag.Optional);
+    const valueIsAsync = this.builder.isAsync(type);
     let method: string = wantsArray ? 'find' : 'get';
     let prefix: string = '';
     let need: string = '';
@@ -536,16 +582,20 @@ function compareIDs(a: string, b: string): number {
   return (a.indexOf('#') - b.indexOf('#')) || a.localeCompare(b, 'en', { sensitivity: 'base', numeric: true });
 }
 
-function extractSources(definitions: ServiceDefinitionInfo[]): Map<SourceFile, string> {
-  const sources = [...new Set(
+function extractSources(definitions: ServiceDefinitionInfo[], parameters?: ContainerParametersInfo): Map<SourceFile, string> {
+  const sources = new Set(
     definitions
       .flatMap((d) => [d.source, ...d.decorators.map((o) => o.source), d.creates?.source])
       .filter((s): s is SourceFile => s !== undefined)
-  )];
+  );
 
-  sources.sort(compareSourceFiles);
+  if (parameters) {
+    sources.add(parameters.source);
+  }
+
+  const list = [...sources].sort(compareSourceFiles);
   const aliases: Record<string, number> = {};
-  return new Map(sources.map((s) => [s, extractSourceAlias(s, aliases)]));
+  return new Map(list.map((s) => [s, extractSourceAlias(s, aliases)]));
 }
 
 function compareSourceFiles(a: SourceFile, b: SourceFile): number {
