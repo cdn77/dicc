@@ -44,7 +44,7 @@ database connection - we usually don't want each place in the application which
 needs to access the database to create its own connection. Another example might
 be a class which facilitates sending an e-mail - it might accept some common
 configuration as a constructor argument (e.g. the SMTP server connection
-parameters) and then expose a method which just accepts e.g. a list of
+options) and then expose a method which just accepts e.g. a list of
 recipients, a subject and a message body. Being able to somehow get a configured
 instance of this class would allow other code to send an e-mail without caring
 about _how_ the e-mail is actually sent. A slightly less obvious example might
@@ -80,4 +80,4 @@ the `EmailAlertSender` class would implement this interface.
 
 **Next**: [Intro to DICC][1]
 
-[1]: user/02-intro-to-dicc.md
+[1]: ./02-intro-to-dicc.md

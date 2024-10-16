@@ -54,6 +54,10 @@ will be inside the resource file (or files).
  - supports _service decorators_ (not the same thing as `@decorators`) which
    allow some modifications to service definitions without needing to alter the
    definitions themselves
+ - supports merging multiple containers, such that public services from a merged
+   container are available for injection into services in the parent container
+ - allows you to define _container parameters_, which are useful to inject
+   runtime configuration e.g. from `.env` files
  - compiles to regular TypeScript which you can easily examine to see what's
    going on under the hood
  - cyclic dependency checks run on compile time, preventing possible deadlocks

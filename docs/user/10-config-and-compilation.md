@@ -18,13 +18,17 @@ project: './tsconfig.json'
 # with path to the generated file as the key and the
 # container options as the value:
 containers:
-  src/bootstrap.ts: # for example
+  src/bootstrap/container.ts: # for example
     # any text to add at the beginning of the compiled
     # output file; useful for e.g. an eslint-disable comment:
     preamble: ~
 
-    # the class name of the compiled container:
+    # the class name of the compiled container;
+    # use 'default' to make the class the default export:
     className: 'AppContainer'
+
+    # whether to type-check the generated container after compilation:
+    typeCheck: true
 
     # required; a map of <path>: [options] pairs:
     resources:
@@ -34,8 +38,8 @@ containers:
       'src/examples/**/*.ts':
         # exclude files or exported paths from scanning:
         exclude:
-          - '**/__tests__/**'  # you can exclude by path
-          - 'path.to.NonServiceClass'  # or by object path
+          - '**/__tests__/**'  # you can exclude by file path or glob
+          - 'path.to.ExcludedClass'  # or by object path
 ```
 
 ## Compiling a container
@@ -59,8 +63,8 @@ dicc [-v|--verbose] [-c <file>|--config <file>]
 
 The compiled container should be a deterministic product of your definitions,
 so you can safely exclude it from version control. But versioning it probably
-won't hurt anything, either, and at least you'll be able to see changes between
-compilations.
+won't hurt anything, either; that way, you can speed up build times, and you'll
+be able to see changes between compilations.
 
 
 ## Obtaining services
@@ -80,5 +84,5 @@ container.get('application').run();
 Remember, a key attribute of dependency injection is that code doesn't know
 that there _is_ a DI container, and that includes obtaining services from the
 container. So the ideal way to write code is to wrap everything in services,
-specify inter-service dependencies as constructor parameters and have the DI
+specify inter-service dependencies as constructor arguments and have DICC
 inject the dependencies wherever you need them.

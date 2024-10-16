@@ -133,6 +133,12 @@ In this section we'll look at some terms used in the rest of the documentation:
    from the path to the service definition in the definition tree exported from
    a definition file. Services which don't have an explicit service definition
    don't have service IDs.
+ - **Public services** are those which we can explicitly address in application
+   code using their service IDs. Your app will typically only have a couple of
+   these.
+ - **Anonymous services** are the opposite of public services: although they do
+   have an ID internally, it should be considered an opaque string and not used
+   by application code.
  - An **alias**, as mentioned, is an extra type that you want the DICC compiler
    to consider when resolving injection. Each service can have zero or more
    aliases and the service type must structurally conform to each of them.
@@ -195,20 +201,21 @@ In this section we'll look at some terms used in the rest of the documentation:
       works with dynamic services as well - the hook will be called when the
       service is registered. An async `onCreate` hook will make the service
       itself async as well.
-    - `onFork(service: T, ...args: any[]): Promise<T | undefined> | T | undefined` -
+    - `onFork<R>(callback: (forkedService?: T) => Promise<R> | R, service: T, ...args: any[]): Promise<R> | R` -
       This hook will be called at the start of a `container.fork()` call. The
-      hook may return a new instance of the service which will be used inside
-      the forked async execution chain, as if the service was defined in the
-      `local` scope. MikroORM's `EntityManager` comes to mind here.
+      hook should do its thing and then call `return callback()` at the end,
+      optionally passing a new instance of the service into the callback; this
+      instance will be used inside the forked async execution chain, as if the
+      service was defined in the `local` scope. MikroORM's `EntityManager` comes
+      to mind here.
     - `onDestroy(service: T, ...args: any[]): void` - This hook will be called
       when a service is being destroyed. This will happen at the end of any
       `container.fork()` call for all services in the `local` scope, as well as
       for any instances returned from an `onFork` hook within the same fork
       call.
 
-   The first argument for each hook callback must always be the service instance,
-   but you can specify other arguments and these will be injected from
-   the container as usual.
+   The `...args: any[]` rest argument of each hook callback will be injected the
+   same way service factories are, so hooks can use other services.
  - An **async service** is a service whose factory returns a Promise, or whose
    `onCreate` hook returns a Promise, or which depends on another async service.
    It is impossible to obtain a resolved instance of an async service from the
@@ -223,7 +230,7 @@ In this section we'll look at some terms used in the rest of the documentation:
    hooks, and they can even wrap the service factory and alter the service
    instance itself, if needed.
 
-**Next**: [Services and dependencies][2]
+**Next**: [Simple services][2]
 
-[1]: user/01-intro-to-di.md
-[2]: user/03-services-and-dependencies.md
+[1]: ./01-intro-to-di.md
+[2]: ./03-simple-services.md

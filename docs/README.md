@@ -28,14 +28,22 @@ npm i --save dicc
    injection principles
  - [Intro to DICC][2] - basic introduction to DICC and how it was designed
    to work
- - [Services and dependencies][3] - how to write service definitions for the
-   DICC compiler and how to specify dependencies
- - [Config and compilation][4] - how to configure the compiler, how to compile
+ - [Simple services][3] - how to define the most common type of services
+ - [Explicit service definitions][4] - how to tweak service definitions when
+   more control is needed
+ - [Injecting dependencies][5] - all the ways services can depend on each other
+ - [Auto-generated factories][6] - save yourself some keystrokes
+ - [Service decorators][7] - augment multiple service definitions at once
+ - [Container parameters][8] - define runtime parameters for the entire
+   container
+ - [Merging containers][9] - split your application container into multiple
+   parts and then merge them back together
+ - [Config and compilation][10] - how to configure the compiler, how to compile
    a container and how to use the container at runtime
 
 ## Integration recipes
 
- - [Express][5]
+ - [Express][11]
 
 ## Developer documentation
 
@@ -45,6 +53,12 @@ to DICC or to extend it with custom functionality. Coming soon!
 
 [1]: user/01-intro-to-di.md
 [2]: user/02-intro-to-dicc.md
-[3]: user/03-services-and-dependencies.md
-[4]: user/04-config-and-compilation.md
-[5]: recipes/01-express.md
+[3]: user/03-simple-services.md
+[4]: user/04-explicit-definitions.md
+[5]: user/05-injecting-dependencies.md
+[6]: user/06-auto-factories.md
+[7]: user/07-service-decorators.md
+[8]: user/08-container-parameters.md
+[9]: user/09-merging-containers.md
+[10]: user/10-config-and-compilation.md
+[11]: recipes/01-express.md
