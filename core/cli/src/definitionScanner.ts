@@ -50,6 +50,13 @@ export class DefinitionScanner {
     this.scanNode(ctx, source);
   }
 
+  * resolvePublicServices(container: Type): Iterable<[id: string, type: Type, async?: boolean]> {
+    for (const [id, svcType] of this.helper.resolveContainerPublicServices(container)) {
+      const [type, async] = this.helper.unwrapAsyncType(svcType);
+      yield [id, type, async];
+    }
+  }
+
   private scanNode(ctx: ScanContext, node?: Node): void {
     if (ctx.exclude?.test(ctx.path)) {
       this.logger.trace(`Ignored ${ctx.describe()}`);
@@ -180,6 +187,7 @@ export class DefinitionScanner {
     const scope = this.resolveServiceScope(definition);
     const hooks = this.resolveServiceHooks(definition);
     const anonymous = this.resolveAnonymousFlag(definition);
+    const container = this.helper.isContainer(type);
     const id = definition && !anonymous ? path : undefined;
     const explicit = !!definition;
 
@@ -194,6 +202,7 @@ export class DefinitionScanner {
       object,
       explicit,
       anonymous,
+      container,
       factory,
       args,
       scope,

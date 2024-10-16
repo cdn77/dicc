@@ -1,5 +1,6 @@
 import { Logger } from '@debugr/core';
 import { ServiceScope } from 'dicc';
+import { SourceFile } from 'ts-morph';
 import { ContainerBuilder } from './containerBuilder';
 import { DefinitionError, TypeError, UserError } from './errors';
 import {
@@ -11,16 +12,34 @@ import {
   TypeFlag,
 } from './types';
 
+export interface AutowiringFactory {
+  create(containers: Map<SourceFile, ContainerBuilder>): Autowiring;
+}
+
 export class Autowiring {
+  private readonly visitedContainers: Set<ContainerBuilder> = new Set();
   private readonly visitedServices: Set<ServiceDefinitionInfo> = new Set();
   private readonly visitedDecorators: Map<ServiceDecoratorInfo, Set<ServiceScope>> = new Map();
   private readonly resolving: string[] = [];
 
   constructor(
     private readonly logger: Logger,
+    private readonly containers: Map<SourceFile, ContainerBuilder>,
   ) {}
 
-  checkDependencies(builder: ContainerBuilder): void {
+  checkDependencies(): void {
+    for (const builder of this.containers.values()) {
+      this.checkContainer(builder);
+    }
+  }
+
+  private checkContainer(builder: ContainerBuilder): void {
+    if (!this.visitContainer(builder)) {
+      return;
+    }
+
+    this.logger.debug(`Checking container '${builder.path}'...`);
+
     for (const definition of builder.getDefinitions()) {
       this.checkServiceDependencies(builder, definition);
     }
@@ -36,44 +55,66 @@ export class Autowiring {
       return;
     }
 
-    this.logger.debug(`Checking '${info.path}' dependencies...`);
+    const desc = info.parent ? `'${info.path}.${info.id}'` : `'${info.path}'`;
+
+    this.logger.debug(`Checking ${desc} dependencies...`);
     const scope = this.resolveScope(info);
 
     if (info.factory) {
-      if (this.checkArguments(builder, info.factory.args, `service '${info.path}'`, scope, info.args) && !info.factory.async) {
-        this.logger.trace(`Marking '${info.path}' factory as async because one or more arguments need to be awaited`);
+      if (info.parent) {
+        const parentSvc = builder.get(info.parent);
+        this.checkServiceDependencies(builder, parentSvc);
+
+        if (parentSvc.async && !info.async) {
+          this.logger.trace(`Marking ${desc} as async because parent container needs to be awaited`);
+          info.async = true;
+        }
+
+        const parentSrc = parentSvc.type.getSymbolOrThrow().getValueDeclarationOrThrow().getSourceFile();
+        const parentBuilder = this.containers.get(parentSrc);
+
+        if (parentBuilder) {
+          this.checkContainer(parentBuilder);
+
+          if (parentBuilder.isAsync(info.type) && !info.factory.async) {
+            this.logger.trace(`Marking ${desc} factory as async because service is async in parent container`);
+            info.factory.async = true;
+          }
+        }
+      } else if (this.checkArguments(builder, info.factory.args, `service ${desc}`, scope, info.args) && !info.factory.async) {
+        this.logger.trace(`Marking ${desc} factory as async because one or more arguments need to be awaited`);
         info.factory.async = true;
       }
 
       if (info.factory.async && !info.async) {
-        this.logger.trace(`Marking '${info.path}' as async because factory is async`);
+        this.logger.trace(`Marking ${desc} as async because factory is async`);
         info.async = true;
       }
     }
 
     if (info.creates) {
-      this.logger.trace(`Checking auto-factory '${info.path}' target arguments...`);
+      this.logger.trace(`Checking auto-factory ${desc} target arguments...`);
       const injectedArgs = info.creates.factory.args.filter((p) => !info.creates!.manualArgs.includes(p.name));
 
-      if (this.checkArguments(builder, injectedArgs, `auto-factory '${info.path}'`, scope, info.creates.args) && !info.creates.async) {
-        throw new DefinitionError(`Auto-factory '${info.path}' must return a Promise because target has async dependencies`);
+      if (this.checkArguments(builder, injectedArgs, `auto-factory ${desc}`, scope, info.creates.args) && !info.creates.async) {
+        throw new DefinitionError(`Auto-factory ${desc} must return a Promise because target has async dependencies`);
       }
     }
 
-    if (this.checkHooks(builder, info.hooks, `service '${info.path}'`, scope) && !info.async) {
-      this.logger.trace(`Marking '${info.path}' as async because its 'onCreate' hook is async`);
+    if (this.checkHooks(builder, info.hooks, `service ${desc}`, scope) && !info.async) {
+      this.logger.trace(`Marking ${desc} as async because its 'onCreate' hook is async`);
       info.async = true;
     }
 
     const flags = this.checkDecorators(builder, info.decorators, scope);
 
     if (flags.asyncDecorate && info.factory && !info.factory.async) {
-      this.logger.trace(`Marking '${info.path}' factory as async because it has an async decorator`);
+      this.logger.trace(`Marking ${desc} factory as async because it has an async decorator`);
       info.factory.async = true;
     }
 
     if ((flags.asyncDecorate || flags.asyncOnCreate) && !info.async) {
-      this.logger.trace(`Marking '${info.path}' as async because it has an async decorator`);
+      this.logger.trace(`Marking ${desc} as async because it has an async decorator`);
       info.async = true;
     }
   }
@@ -258,6 +299,15 @@ export class Autowiring {
     if (last !== id) {
       throw new Error(`Dependency chain checker broken`);
     }
+  }
+
+  private visitContainer(builder: ContainerBuilder): boolean {
+    if (this.visitedContainers.has(builder)) {
+      return false;
+    }
+
+    this.visitedContainers.add(builder);
+    return true;
   }
 
   private visitService(definition: ServiceDefinitionInfo): boolean {

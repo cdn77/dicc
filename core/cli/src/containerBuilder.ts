@@ -1,5 +1,10 @@
-import { Type } from 'ts-morph';
-import { ServiceDecoratorInfo, ServiceDefinitionInfo, ServiceRegistrationInfo } from './types';
+import { SourceFile, Type } from 'ts-morph';
+import {
+  ContainerOptions,
+  ServiceDecoratorInfo,
+  ServiceDefinitionInfo,
+  ServiceRegistrationInfo,
+} from './types';
 
 export class ContainerBuilder {
   private readonly definitions: Map<string, ServiceDefinitionInfo> = new Map();
@@ -7,6 +12,12 @@ export class ContainerBuilder {
   private readonly typeIds: Set<string> = new Set();
   private readonly aliases: Map<string, Set<string>> = new Map();
   private readonly decorators: Map<string, ServiceDecoratorInfo[]> = new Map();
+
+  constructor(
+    readonly path: string,
+    readonly options: ContainerOptions,
+    readonly output: SourceFile,
+  ) {}
 
   register({ id, type, ...registration }: ServiceRegistrationInfo): void {
     const typeId = this.registerType(type);
@@ -73,6 +84,14 @@ export class ContainerBuilder {
 
   getDefinitions(): Iterable<ServiceDefinitionInfo> {
     return this.definitions.values();
+  }
+
+  * getPublicServices(): Iterable<[id: string, type: Type, async?: boolean]> {
+    for (const definition of this.getDefinitions()) {
+      if (!definition.id.startsWith('#')) {
+        yield [definition.id, definition.type, definition.async];
+      }
+    }
   }
 
   getTypeId(type: Type): string | undefined {

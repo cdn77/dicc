@@ -12,7 +12,7 @@ interface Services {
   'debug.logger': ServiceType<typeof definitions0.debug.logger>;
   'dicc': Promise<ServiceType<typeof definitions0.dicc>>;
   '#Argv.0': argv0.Argv;
-  '#Autowiring.0': autowiring0.Autowiring;
+  '#AutowiringFactory.0': autowiring0.AutowiringFactory;
   '#Checker.0': Promise<checker0.Checker>;
   '#ConfigLoader.0': configLoader0.ConfigLoader;
   '#ConsoleHandler.0': ServiceType<typeof definitions0.debug.console>;
@@ -40,7 +40,7 @@ export class DiccContainer extends Container<Services>{
         factory: async (di) => new definitions0.dicc(
           await di.get('#SourceFiles.0'),
           await di.get('#DefinitionScanner.0'),
-          di.get('#Autowiring.0'),
+          di.get('#AutowiringFactory.0'),
           await di.get('#Checker.0'),
           await di.get('#DiccConfig.0'),
           di.get('#Logger.0'),
@@ -49,8 +49,13 @@ export class DiccContainer extends Container<Services>{
       '#Argv.0': {
         factory: () => new argv0.Argv(),
       },
-      '#Autowiring.0': {
-        factory: (di) => new autowiring0.Autowiring(di.get('#Logger.0')),
+      '#AutowiringFactory.0': {
+        factory: (di) => ({
+          create: (containers) => new autowiring0.Autowiring(
+            di.get('#Logger.0'),
+            containers,
+          ),
+        }),
       },
       '#Checker.0': {
         async: true,

@@ -9,6 +9,7 @@ import {
   FindResult,
   GetResult,
   IterateResult,
+  ServiceMap,
   ServiceScope,
 } from './types';
 import {
@@ -17,8 +18,9 @@ import {
   isPromiseLike,
 } from './utils';
 
-
 export class Container<Services extends Record<string, any> = {}> {
+  readonly [ServiceMap]?: Services;
+
   private readonly definitions: Map<string, CompiledServiceDefinition> = new Map();
   private readonly aliases: Map<string, string[]> = new Map();
   private readonly globalServices: Store = new Store();
@@ -30,13 +32,13 @@ export class Container<Services extends Record<string, any> = {}> {
     this.importDefinitions(definitions);
   }
 
-  get<K extends keyof Services>(id: K): GetResult<Services, K, true>;
-  get<K extends keyof Services, Need extends boolean>(id: K, need: Need): GetResult<Services, K, Need>;
+  get<Id extends keyof Services>(id: Id): GetResult<Services, Id, true>;
+  get<Id extends keyof Services, Need extends boolean>(id: Id, need: Need): GetResult<Services, Id, Need>;
   get(id: string, need: boolean = true): any {
     return this.getOrCreate(this.resolve(id), need);
   }
 
-  iterate<K extends keyof Services>(alias: K): IterateResult<Services, K>;
+  iterate<Id extends keyof Services>(alias: Id): IterateResult<Services, Id>;
   iterate(alias: string): Iterable<any> | AsyncIterable<any> {
     const ids = this.resolve(alias, false);
     const async = ids.some((id) => this.definitions.get(id)?.async);
@@ -45,7 +47,7 @@ export class Container<Services extends Record<string, any> = {}> {
       : createIterator(ids, (id) => this.getOrCreate(id, false));
   }
 
-  find<K extends keyof Services>(alias: K): FindResult<Services, K>;
+  find<Id extends keyof Services>(alias: Id): FindResult<Services, Id>;
   find(alias: string): Promise<any[]> | any[] {
     const ids = this.resolve(alias, false);
     const async = ids.some((id) => this.definitions.get(id)?.async);
@@ -56,7 +58,7 @@ export class Container<Services extends Record<string, any> = {}> {
       : ids.map((id) => this.getOrCreate(id, false)).filter((service) => service !== undefined);
   }
 
-  register<K extends keyof Services>(alias: K, service: Services[K], force?: boolean): PromiseLike<void> | void;
+  register<Id extends keyof Services>(alias: Id, service: Services[Id], force?: boolean): PromiseLike<void> | void;
   register(alias: string, service: any): PromiseLike<void> | void {
     const id = this.resolve(alias);
     const definition = this.definitions.get(id);
@@ -130,7 +132,12 @@ export class Container<Services extends Record<string, any> = {}> {
     for (const [id, definition] of Object.entries(definitions)) {
       this.definitions.set(id, definition)
       this.aliases.set(id, [id]);
-      definition.onFork && this.forkHooks.push([id, definition.onFork]);
+
+      if (definition.container) {
+        this.forkHooks.push([id, (cb, svc) => svc.fork(cb)])
+      } else if (definition.onFork) {
+        this.forkHooks.push([id, definition.onFork]);
+      }
 
       for (const alias of definition.aliases ?? []) {
         this.aliases.has(alias) || this.aliases.set(alias, []);

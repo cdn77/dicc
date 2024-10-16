@@ -35,6 +35,8 @@ export type ServiceRegistrationInfo = {
   object?: boolean;
   explicit?: boolean;
   anonymous?: boolean;
+  container?: boolean;
+  parent?: string;
   factory?: ServiceFactoryInfo;
   args?: Record<string, CallbackInfo | undefined>;
   hooks: ServiceHooks;

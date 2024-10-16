@@ -62,6 +62,13 @@ export type ServiceType<D> =
   : D extends ServiceDefinition<infer T> ? T
   : never;
 
+export const ServiceMap = Symbol('ServiceMap');
+
+export type ForeignServiceType<C extends Container, Id extends string> =
+  C extends {[ServiceMap]?: infer Map}
+    ? Id extends keyof Map ? Map[Id] : never
+    : never;
+
 export type CompiledServiceHook<T, Services extends Record<string, any> = {}> = {
   (service: T, container: Container<Services>): void;
 };
@@ -76,6 +83,7 @@ export type CompiledServiceForkHook<T, Services extends Record<string, any> = {}
 
 export type CompiledServiceDefinitionOptions<T = any, Services extends Record<string, any> = {}> = {
   aliases?: string[];
+  container?: boolean;
   scope?: ServiceScope;
   onFork?: CompiledServiceForkHook<T, Services>;
   onDestroy?: CompiledAsyncServiceHook<T, Services>;

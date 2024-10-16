@@ -7,38 +7,38 @@ import {
   ServiceDefinitionInfo,
   CallbackInfo,
   TypeFlag,
-  ContainerOptions, AutoFactoryTarget,
+  AutoFactoryTarget,
 } from './types';
 
 export class Compiler {
   constructor(
     private readonly builder: ContainerBuilder,
-    private readonly output: SourceFile,
-    private readonly options: ContainerOptions,
   ) {}
 
   compile(): void {
-    const definitions = [...this.builder.getDefinitions()].sort((a, b) => compareIDs(a.id, b.id));
+    const definitions = [...this.builder.getDefinitions()].sort(
+      (a, b) => compareIDs(a.parent ?? '', b.parent ?? '') || compareIDs(a.id, b.id),
+    );
     const sources = extractSources(definitions);
 
-    this.output.replaceWithText('');
+    this.builder.output.replaceWithText('');
 
     this.writeHeader(sources);
     this.writeMap(definitions, sources);
     this.writeDefinitions(definitions, sources);
 
-    if (this.options.preamble !== undefined) {
-      this.output.insertText(0, this.options.preamble.replace(/\s*$/, '\n\n'));
+    if (this.builder.options.preamble !== undefined) {
+      this.builder.output.insertText(0, this.builder.options.preamble.replace(/\s*$/, '\n\n'));
     }
   }
 
   private writeHeader(sources: Map<SourceFile, string>): void {
     const imports = [...sources].map(([source, name]) => [
       name,
-      this.output.getRelativePathAsModuleSpecifierTo(source),
+      this.builder.output.getRelativePathAsModuleSpecifierTo(source),
     ]);
 
-    this.output.addImportDeclaration({
+    this.builder.output.addImportDeclaration({
       moduleSpecifier: 'dicc',
       namedImports: [
         { name: 'Container' },
@@ -46,28 +46,32 @@ export class Compiler {
     });
 
     for (const [namespaceImport, moduleSpecifier] of imports) {
-      this.output.addImportDeclaration({ moduleSpecifier, namespaceImport });
+      this.builder.output.addImportDeclaration({ moduleSpecifier, namespaceImport });
     }
   }
 
   private writeMap(definitions: ServiceDefinitionInfo[], sources: Map<SourceFile, string>): void {
-    let useServiceType = false;
+    this.builder.output.addStatements((writer) => {
+      const aliasMap: Map<string, Set<string>> = new Map();
+      let useForeignServiceType = false;
+      let useServiceType = false;
 
-    this.output.addStatements((writer) => {
       writer.writeLine(`\ninterface Services {`);
 
-      const aliasMap: Map<string, Set<string>> = new Map();
-
       writer.indent(() => {
-        for (const { source, id, path, type, aliases, factory, async, explicit } of definitions) {
+        for (const { source, id, path, type, aliases, factory, async, explicit, parent } of definitions) {
           const method = !explicit && factory?.method !== 'constructor' && factory?.method;
           const fullPath = join('.', sources.get(source), path, method);
           const serviceType = !explicit && !method && !path.includes('.')
             ? fullPath
             : `ServiceType<typeof ${fullPath}>`;
-          const fullType = async ? `Promise<${serviceType}>` : serviceType;
+          const fullType = parent
+            ? maybeAsync(`ForeignServiceType<${serviceType}, '${id}'>`, async && !factory?.async)
+            : maybeAsync(serviceType, async);
 
-          !/^#/.test(id) && writer.writeLine(`'${id}': ${fullType};`);
+          if (!id.startsWith('#')) {
+            writer.writeLine(`'${parent ? `${parent}.` : ''}${id}': ${fullType};`);
+          }
 
           for (const typeAlias of [type, ...aliases]) {
             const alias = this.builder.getTypeId(typeAlias);
@@ -78,9 +82,10 @@ export class Compiler {
             }
           }
 
-          if (!useServiceType && serviceType !== fullPath) {
+          if (parent) {
+            useForeignServiceType = true;
+          } else if (serviceType !== fullPath) {
             useServiceType = true;
-            this.output.getImportDeclarationOrThrow('dicc').addNamedImport('ServiceType');
           }
         }
 
@@ -101,6 +106,14 @@ export class Compiler {
       });
 
       writer.writeLine('}');
+
+      if (useForeignServiceType) {
+        this.builder.output.getImportDeclarationOrThrow('dicc').addNamedImport('ForeignServiceType');
+      }
+
+      if (useServiceType) {
+        this.builder.output.getImportDeclarationOrThrow('dicc').addNamedImport('ServiceType');
+      }
     });
   }
 
@@ -108,10 +121,10 @@ export class Compiler {
     definitions: ServiceDefinitionInfo[],
     sources: Map<SourceFile, string>,
   ): void {
-    this.output.addStatements((writer) => {
-      const declaration = this.options.className === 'default'
+    this.builder.output.addStatements((writer) => {
+      const declaration = this.builder.options.className === 'default'
         ? 'default class'
-        : `class ${this.options.className}`;
+        : `class ${this.builder.options.className}`;
 
       writer.writeLine(`\nexport ${declaration} extends Container<Services>{`);
 
@@ -135,15 +148,15 @@ export class Compiler {
 
   private compileDefinition(
     writer: CodeBlockWriter,
-    { source, id, path, type, factory, args, scope = 'global', async, object, creates, hooks, aliases, decorators }: ServiceDefinitionInfo,
+    { source, id, path, type, factory, args, scope = 'global', async, container, parent, object, creates, hooks, aliases, decorators }: ServiceDefinitionInfo,
     sources: Map<SourceFile, string>,
   ): void {
     const decoratorMap = getDecoratorMap(decorators, sources);
     const src = sources.get(source)!;
-    writer.writeLine(`'${id}': {`);
+    writer.writeLine(`'${parent ? `${parent}.` : ''}${id}': {`);
 
     writer.indent(() => {
-      object && writer.writeLine(`...${src}.${path},`);
+      !parent && object && writer.writeLine(`...${src}.${path},`);
 
       const types = [!/^#/.test(id) ? type : undefined, ...aliases]
         .filter((v): v is Type => v !== undefined)
@@ -151,13 +164,18 @@ export class Compiler {
 
       writer.conditionalWriteLine(types.length > 0, `aliases: [${types.join(`, `)}],`);
       writer.conditionalWriteLine(async, `async: true,`);
+      writer.conditionalWriteLine(container, `container: true,`);
 
-      if (decoratorMap.scope && decoratorMap.scope !== scope) {
+      if (parent) {
+        writer.writeLine(`scope: 'private',`);
+      } else if (decoratorMap.scope && decoratorMap.scope !== scope) {
         writer.writeLine(`scope: '${decoratorMap.scope}',`);
       }
 
       if (factory) {
-        if (!object && factory.method !== 'constructor' && !factory.args.length && !decoratorMap.decorate.length) {
+        if (parent) {
+          this.compileForeignFactory(writer, parent, id, async);
+        } else if (!object && factory.method !== 'constructor' && !factory.args.length && !decoratorMap.decorate.length) {
           writer.writeLine(`factory: ${join('.', src, path, factory.method)},`);
         } else if (!object || factory.method === 'constructor' || factory.args.length || decoratorMap.decorate.length) {
           this.compileFactory(
@@ -191,6 +209,29 @@ export class Compiler {
     });
 
     writer.writeLine('},');
+  }
+
+  private compileForeignFactory(
+    writer: CodeBlockWriter,
+    parent: string,
+    id: string,
+    async?: boolean,
+  ): void {
+    const parentIsAsync = this.builder.get(parent).async;
+
+    writer.write(`factory: `);
+    writer.conditionalWrite(async || parentIsAsync, 'async ');
+
+    if (!parentIsAsync) {
+      writer.write(`(di) => di.get('${parent}').get('${id}'),\n`);
+    } else {
+      writer.write('(di) => {\n');
+      writer.indent(() => {
+        writer.writeLine(`const src = await di.get('${parent}');`);
+        writer.writeLine(`return src.get('${id}');`);
+      });
+      writer.write('},\n');
+    }
   }
 
   private compileFactory(
@@ -525,4 +566,10 @@ function extractSourceAlias(source: SourceFile, map: Record<string, number>): st
 
 function join(separator: string, ...tokens: (string | 0 | false | undefined)[]): string {
   return tokens.filter((t) => typeof t === 'string').join(separator);
+}
+
+function maybeAsync(type: string, async?: boolean): string {
+  return async
+    ? `Promise<${type}>`
+    : type;
 }

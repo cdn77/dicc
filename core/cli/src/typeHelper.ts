@@ -20,6 +20,7 @@ import { ArgumentInfo, TypeFlag } from './types';
 export class TypeHelper {
   private readonly refs: ReferenceResolver;
   private containerType?: Type;
+  private serviceMapSymbolType?: Type;
 
   constructor(private readonly project: Project) {
     this.refs = this.createReferenceResolver('dicc/refs');
@@ -88,7 +89,7 @@ export class TypeHelper {
     } else if (target === this.refs.get('GlobalAsyncIterable', SyntaxKind.TypeAliasDeclaration)) {
       flags |= TypeFlag.Async | TypeFlag.Iterable;
       type = type.getTypeArguments()[0];
-    } else if (target === this.getContainerType()) {
+    } else if (this.isContainer(target)) {
       flags |= TypeFlag.Container;
       type = target;
     }
@@ -238,6 +239,27 @@ export class TypeHelper {
       : { name, flags };
   }
 
+  * resolveContainerPublicServices(type: Type): Iterable<[string, Type]> {
+    const declaration = type.getSymbol()?.getValueDeclaration();
+
+    if (!declaration) {
+      return;
+    }
+
+    const prop = type.getProperty(findSymbolProp(this.getServiceMapSymbolType()));
+    const map = prop?.getTypeAtLocation(declaration).getNonNullableType();
+
+    if (!map) {
+      return;
+    }
+
+    for (const prop of map.getProperties()) {
+      if (!prop.getName().startsWith('#')) {
+        yield [prop.getName(), prop.getTypeAtLocation(declaration)];
+      }
+    }
+  }
+
   private getFirstSignature(signatures: Signature[], ctx: Type, need?: true): Signature;
   private getFirstSignature(signatures: Signature[], ctx: Type, need: false): Signature | undefined;
   private getFirstSignature([first, ...rest]: Signature[], ctx: Type, need?: boolean): Signature | undefined {
@@ -289,4 +311,45 @@ export class TypeHelper {
   getContainerType(): Type {
     return this.containerType ??= this.resolveRootType(this.refs.get('Container', SyntaxKind.ClassDeclaration).getType());
   }
+
+  isContainer(type: Type): boolean {
+    if (!type.isClass()) {
+      return false;
+    }
+
+    const container = this.getContainerType();
+    const queue: Type[] = [type];
+
+    for (let t = queue.shift(); t !== undefined; t = queue.shift()) {
+      if (this.resolveRootType(t) === container) {
+        return true;
+      }
+
+      queue.push(...t.getBaseTypes());
+    }
+
+    return false;
+  }
+
+  getServiceMapSymbolType(): Type {
+    return this.serviceMapSymbolType ??= this.refs.get('ServiceMap', SyntaxKind.VariableDeclaration).getType();
+  }
+}
+
+function findSymbolProp(symbol: Type) {
+  return (prop: Symbol) => {
+    const d = prop.getValueDeclaration();
+
+    if (!Node.isPropertyDeclaration(d)) {
+      return false;
+    }
+
+    const n = d.getNameNode();
+
+    if (!Node.isComputedPropertyName(n)) {
+      return false;
+    }
+
+    return n.getExpression().getType() === symbol;
+  };
 }
