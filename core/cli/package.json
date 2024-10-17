@@ -9,7 +9,7 @@
     "ioc",
     "inversion of control"
   ],
-  "version": "0.0.41",
+  "version": "0.1.0",
   "license": "MIT",
   "author": {
     "name": "Dan Kadera",
@@ -33,16 +33,16 @@
   },
   "dependencies": {
     "@debugr/console": "^3.0.0-rc.10",
-    "@debugr/core": "^3.0.0-rc.12",
-    "dicc": "^0.0.28",
-    "ts-morph": "^18.0",
-    "typescript": "^5.0",
-    "yaml": "^2.3.1",
-    "zod": "^3.21.4"
+    "@debugr/core": "^3.0.0-rc.13",
+    "dicc": "^0.1.0",
+    "ts-morph": "^24.0.0",
+    "typescript": "^5.6.3",
+    "yaml": "^2.6.0",
+    "zod": "^3.23.8"
   },
   "devDependencies": {
-    "@tsconfig/node18": "^2.0",
-    "@types/node": "^18.16",
+    "@tsconfig/node18": "^18.2.4",
+    "@types/node": "^18.19.56",
     "is-published": "^0.2.0"
   }
 }
