@@ -2,7 +2,7 @@
 
 DICC is a Dependency Injection Container Compiler for TypeScript. It analyses
 one or more of your project's source files and produces a new TypeScript file,
-which exports a DI container instance configured to create your project services
+which exports a DI container class configured to create your project services
 and autowire dependencies between them.
 
 
