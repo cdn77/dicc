@@ -141,20 +141,20 @@ want to handle resolving the Promises yourself, you can ask DICC to inject
 a Promise for the array, e.g.:
 
 ```typescript
-export class AggregatedLogger {
-  constructor(private readonly loggers: Promise<Logger[]>) {}
+export class Logger {
+  constructor(private readonly writers: Promise<LogWriter[]>) {}
 }
 ```
 
 You can combine accessor and array injection:
 
 ```typescript
-export class AggregatedLogger {
+export class Logger {
   constructor(
     // for sync services:
-    private readonly getLoggers: () => Logger[],
+    private readonly getWriters: () => LogWriter[],
     // if one or more of the services is async:
-    private readonly getLoggersAsync: () => Promise<Logger[]>,
+    private readonly getWritersEventually: () => Promise<LogWriter[]>,
   ) {}
 }
 ```
@@ -165,12 +165,12 @@ accessor for an array), each service in the iterable will be lazily resolved
 when the iterable reaches it. Works for sync and async services:
 
 ```typescript
-export class AggregatedLogger {
+export class Logger {
   constructor(
     // for sync services:
-    private readonly loggers: Iterable<Logger>,
+    private readonly writers: Iterable<LogWriter>,
     // if one or more of the services is async:
-    private readonly asyncLoggers: AsyncIterable<Logger>,
+    private readonly asyncWriters: AsyncIterable<LogWriter>,
   ) {}
 }
 ```

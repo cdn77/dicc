@@ -19,14 +19,59 @@ export const twoWithMultipleAliases = ServiceTwo satisfies ServiceDefinition<Ser
 // a definition using a factory function:
 export const three = (() => new ServiceThree()) satisfies ServiceDefinition<ServiceThree>;
 export const alsoThree = ServiceThree.create satisfies ServiceDefinition<ServiceThree>;
+```
 
+So far, the `satisfies` expressions seem like extra work for little gain; but
+even for the simple cases described above, there are a couple of subtle but
+important differences to just exporting classes directly:
+ - Services registered explicitly have a constant, well-known _service ID_, so
+   they can be safely accessed using `container.get('<id>')`.
+ - Explicit definitions give us control over both the type of the service and
+   its aliases _from the DICC compiler's point of view_ - so we can add or even
+   remove types to suit our injection needs, _without_ touching the service code
+   itself.
+ - An explicit factory function allows us to control which arguments DICC will
+   consider during compilation, as well as fine-tune their types.
+
+But the value of the `satisfies` expression can also be an object literal, which
+allows us to specify other options for the service. Formally, the object literal
+form of the service definition has the following shape:
+
+```typescript
+type Constructor<T> = { new (...args: any[]): T };
+type Factory<T> = { (...args: any[]): T };
+type MaybePromise<T> = Promise<T> | T;
+
+export type ServiceDefinitionObject<T> = {
+  // class, factory function, or undefined
+  factory: Constructor<T> | Factory<MaybePromise<T | undefined>> | undefined;
+
+  // map of factory argument overrides
+  args?: Record<string, any>;
+
+  // service scope; defaults to 'global'
+  scope?: 'global' | 'local' | 'private';
+
+  // allows to make an explicit service definition anonymous
+  anonymous?: boolean;
+
+  // hooks for service lifecycle events
+  onCreate?: (service: T, ...args: any[]) => Promise<void> | void;
+  onFork?: <R>(callback: (forkedService?: T) => R, service: T, ...args: any[]) => Promise<R> | R;
+  onDestroy?: (service: T, ...args: any[]) => Promise<void> | void;
+};
+```
+
+Some further examples:
+
+```typescript
 // a definition using an object literal, allowing us to specify other options:
 export const four = {
   factory: ServiceFour,
   onCreate() { console.log('Four created!') },
 } satisfies ServiceDefinition<ServiceFour>;
 
-// a factory function can be async:
+// factory functions can be async:
 export const five = (async () => new ServiceFive()) satisfies ServiceDefinition<ServiceFive>;
 export const alsoFive = {
   async factory() { return new ServiceFive() },
@@ -63,33 +108,7 @@ export const overrideArgs = {
 } satisfies ServiceDefinition<ServiceWithSomeArgs>;
 ```
 
-Formally, the object literal form of the service definition has the following
-shape:
 
-```typescript
-type Constructor<T> = { new (...args: any[]): T };
-type Factory<T> = { (...args: any[]): T };
-type MaybePromise<T> = Promise<T> | T;
-
-export type ServiceDefinitionObject<T> = {
-  // class, factory function, or undefined
-  factory: Constructor<T> | Factory<MaybePromise<T | undefined>> | undefined;
-
-  // map of factory argument overrides
-  args?: Record<string, any>;
-
-  // service scope; defaults to 'global'
-  scope?: 'global' | 'local' | 'private';
-
-  // allows to make an explicit service definition anonymous
-  anonymous?: boolean;
-
-  // hooks for service lifecycle events
-  onCreate?: (service: T, ...args: any[]) => Promise<void> | void;
-  onFork?: <R>(callback: (forkedService?: T) => R, service: T, ...args: any[]) => Promise<R> | R;
-  onDestroy?: (service: T, ...args: any[]) => Promise<void> | void;
-}
-```
 
 A definition file can re-export definitions from other files:
 

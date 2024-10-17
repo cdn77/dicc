@@ -41,7 +41,7 @@ The only place in your code you will ever `import { anything } from 'dicc'`
 will be inside the resource file (or files).
 
 ## Highlights
- - type-based autowiring, doesn't care about type or parameter names
+ - type-based autowiring, doesn't care about type or argument names
  - supports multiple services of the same type
  - first-class support for _async_ services (that is, services which need to be
    created asynchronously)
@@ -118,13 +118,13 @@ import * as services0 from './services.ts';
 
 export interface Services {
   '#ServiceOne.0': services0.ServiceOne,
-  '#ServiceTwo.0': services0.ServiceTwo,
-  '#ServiceThree.0': services0.ServiceThree,
+  '#ServiceTwo.0': Promise<services0.ServiceTwo>,
+  '#ServiceThree.0': Promise<services0.ServiceThree>,
 }
 
 export class AppContainer extends Container<Services> {
   constructor() {
-    super({
+    super({}, {
       '#ServiceOne.0': {
         factory: () => new services0.ServiceOne(),
       },
@@ -132,7 +132,7 @@ export class AppContainer extends Container<Services> {
         async: true,
         factory: async () => services0.ServiceTwo.create(),
       },
-      'ServiceThree.0': {
+      '#ServiceThree.0': {
         async: true,
         factory: async (di) => new services0.ServiceThree(
           di.get('#ServiceOne.0'),
