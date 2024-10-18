@@ -1,5 +1,6 @@
 import { AsyncLocalStorage } from 'async_hooks';
-import { Store } from './store';
+import { ParameterStore } from './parameterStore';
+import { ServiceStore } from './serviceStore';
 import {
   CompiledAsyncServiceDefinition,
   CompiledServiceDefinition,
@@ -9,12 +10,9 @@ import {
   ContainerParameters,
   FindResult,
   GetResult,
-  InvalidParameterPathError,
   IterateResult,
-  Parameter,
   ServiceMap,
   ServiceScope,
-  UnknownParameterError,
 } from './types';
 import {
   createAsyncIterator,
@@ -24,17 +22,17 @@ import {
 
 export class Container<Services extends Record<string, any> = {}, Parameters extends ContainerParameters = {}> {
   readonly [ServiceMap]?: Services;
+  readonly parameters: ParameterStore<Parameters>;
 
-  private readonly parameters: Parameters;
   private readonly definitions: Map<string, CompiledServiceDefinition<any, Services, Parameters>> = new Map();
   private readonly aliases: Map<string, string[]> = new Map();
-  private readonly globalServices: Store = new Store();
-  private readonly localServices: AsyncLocalStorage<Store> = new AsyncLocalStorage();
+  private readonly globalServices: ServiceStore = new ServiceStore();
+  private readonly localServices: AsyncLocalStorage<ServiceStore> = new AsyncLocalStorage();
   private readonly forkHooks: [string, CompiledServiceForkHook<any, Services, Parameters>][] = [];
   private readonly creating: Set<string> = new Set();
 
   constructor(parameters: Parameters, definitions: CompiledServiceDefinitionMap<Services, Parameters>) {
-    this.parameters = parameters;
+    this.parameters = new ParameterStore(parameters);
     this.importDefinitions(definitions);
   }
 
@@ -42,15 +40,6 @@ export class Container<Services extends Record<string, any> = {}, Parameters ext
   get<Id extends keyof Services, Need extends boolean>(id: Id, need: Need): GetResult<Services, Id, Need>;
   get(id: string, need: boolean = true): any {
     return this.getOrCreate(this.resolve(id), need);
-  }
-
-  iterate<Id extends keyof Services>(alias: Id): IterateResult<Services, Id>;
-  iterate(alias: string): Iterable<any> | AsyncIterable<any> {
-    const ids = this.resolve(alias, false);
-    const async = ids.some((id) => this.definitions.get(id)?.async);
-    return async
-      ? createAsyncIterator(ids, async (id) => this.getOrCreate(id, false))
-      : createIterator(ids, (id) => this.getOrCreate(id, false));
   }
 
   find<Id extends keyof Services>(alias: Id): FindResult<Services, Id>;
@@ -62,6 +51,15 @@ export class Container<Services extends Record<string, any> = {}, Parameters ext
       ? Promise.all(ids.map(async (id) => this.getOrCreate(id, false)))
         .then((services) => services.filter((service) => service !== undefined))
       : ids.map((id) => this.getOrCreate(id, false)).filter((service) => service !== undefined);
+  }
+
+  iterate<Id extends keyof Services>(alias: Id): IterateResult<Services, Id>;
+  iterate(alias: string): Iterable<any> | AsyncIterable<any> {
+    const ids = this.resolve(alias, false);
+    const async = ids.some((id) => this.definitions.get(id)?.async);
+    return async
+      ? createAsyncIterator(ids, async (id) => this.getOrCreate(id, false))
+      : createIterator(ids, (id) => this.getOrCreate(id, false));
   }
 
   register<Id extends keyof Services>(alias: Id, service: Services[Id], force?: boolean): PromiseLike<void> | void;
@@ -94,81 +92,9 @@ export class Container<Services extends Record<string, any> = {}, Parameters ext
     }
   }
 
-  getParameters(): Parameters {
-    return this.parameters;
-  }
-
-  resolveParameter<P extends string>(path: P, need?: true): Parameter<Parameters, P>;
-  resolveParameter<P extends string>(path: P, need: false): Parameter<Parameters, P> | undefined;
-  resolveParameter<P extends string>(path: P, need?: boolean): Parameter<Parameters, P> | undefined {
-    try {
-      return this.doResolveParameter(path);
-    } catch (e: unknown) {
-      if (e instanceof UnknownParameterError && need === false) {
-        return undefined;
-      }
-
-      throw e;
-    }
-  }
-
-  expand(value: string, need?: true): string;
-  expand(value: string, need: false): string | undefined;
-  expand(value: string, need?: boolean): string | undefined {
-    try {
-      return value.replace(/%([a-z0-9_.]+)%/gi, (_, path) => this.doResolveParameter(path));
-    } catch (e: unknown) {
-      if (e instanceof UnknownParameterError && need === false) {
-        return undefined;
-      }
-
-      throw e;
-    }
-  }
-
-  private doResolveParameter(path: string): any {
-    const tokens = path.split(/\./g);
-    let cursor: any = this.parameters;
-
-    for (let i = 0; i < tokens.length; ++i) {
-      const token = tokens[i];
-
-      if (typeof cursor !== 'object' || cursor === null) {
-        throw new InvalidParameterPathError(tokens.slice(0, i).join('.'));
-      }
-
-      if (!(token in cursor)) {
-        throw new UnknownParameterError(tokens.slice(0, i).join('.'));
-      }
-
-      cursor = cursor[token];
-    }
-
-    return this.expandTree(cursor);
-  }
-
-  private expandTree(value: any): any {
-    if (typeof value === 'string') {
-      return this.expand(value);
-    }
-
-    if (Array.isArray(value)) {
-      return value.map((v) => this.expandTree(v));
-    }
-
-    if (typeof value !== 'object' || value === null) {
-      return value;
-    }
-
-    return Object.fromEntries(Object.entries(value).map(([k, v]) => [
-      this.expand(k),
-      this.expandTree(v),
-    ]));
-  }
-
   async fork<R>(cb: () => Promise<R>): Promise<R> {
     const parent = this.currentStore;
-    const store = new Store(parent);
+    const store = new ServiceStore(parent);
     const chain = this.forkHooks.reduceRight((next, [id, hook]) => {
       return async () => {
         const callback = async (fork?: any) => {
@@ -299,11 +225,11 @@ export class Container<Services extends Record<string, any> = {}, Parameters ext
     return servicePromise;
   }
 
-  private get currentStore(): Store {
+  private get currentStore(): ServiceStore {
     return this.localServices.getStore() ?? this.globalServices;
   }
 
-  private getStore(scope: ServiceScope = 'global'): Store | undefined {
+  private getStore(scope: ServiceScope = 'global'): ServiceStore | undefined {
     if (scope === 'global') {
       return this.globalServices;
     } else if (scope === 'local') {

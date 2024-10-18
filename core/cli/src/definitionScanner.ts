@@ -296,10 +296,7 @@ export class DefinitionScanner {
 
       if (Node.isStringLiteral(initializer)) {
         const value = initializer.getLiteralValue();
-
-        if (/%[a-z0-9_.]+%/i.test(value)) {
-          args[name] = value;
-        }
+        args[name] = /%[a-z0-9_.]+%/i.test(value) ? value : undefined;
       } else {
         args[name] = this.resolveCallbackInfo(arg);
       }

@@ -1,8 +1,8 @@
-export class Store {
+export class ServiceStore {
   private readonly services: Map<string, any> = new Map();
-  private readonly parent?: Store;
+  private readonly parent?: ServiceStore;
 
-  constructor(parent?: Store) {
+  constructor(parent?: ServiceStore) {
     this.parent = parent;
   }
 

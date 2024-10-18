@@ -459,9 +459,9 @@ export class Compiler {
         }
         case 'string': {
           const [method, arg] = /^%[a-z0-9_.]+$/i.test(info)
-            ? ['resolveParameter', info.slice(1, -1)]
+            ? ['resolve', info.slice(1, -1)]
             : ['expand', info];
-          return [name, `di.${method}('${arg}')`];
+          return [name, `di.parameters.${method}('${arg}')`];
         }
         default:
           return [name, join('.', source, path, 'args', name)];
@@ -506,11 +506,11 @@ export class Compiler {
     }
 
     if ('nestedTypes' in parameters) {
-      return 'di.getParameters()';
+      return 'di.parameters.getAll()';
     }
 
     const optional = arg.flags & TypeFlag.Optional ? `, false` : '';
-    return `di.resolveParameter('${parameters.path}'${optional})`;
+    return `di.parameters.resolve('${parameters.path}'${optional})`;
   }
 
   private compileServiceInjection(type: Type, flags: TypeFlag, id: string): string {

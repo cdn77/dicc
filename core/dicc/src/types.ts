@@ -65,7 +65,7 @@ export type ServiceType<D> =
 export const ServiceMap = Symbol('ServiceMap');
 
 export type ForeignServiceType<C extends Container<any, any>, Id extends string> =
-  C extends {[ServiceMap]?: infer Map}
+  C extends { [ServiceMap]?: infer Map }
     ? Id extends keyof Map ? Map[Id] : never
     : never;
 

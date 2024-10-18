@@ -2,7 +2,8 @@ import { SourceFile, Type } from 'ts-morph';
 import { DefinitionError } from './errors';
 import {
   ContainerOptions,
-  ContainerParametersInfo, NestedParameterInfo,
+  ContainerParametersInfo,
+  NestedParameterInfo,
   ServiceDecoratorInfo,
   ServiceDefinitionInfo,
   ServiceRegistrationInfo,

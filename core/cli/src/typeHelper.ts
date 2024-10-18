@@ -74,7 +74,7 @@ export class TypeHelper {
       if (args.length === 0) {
         flags |= TypeFlag.Accessor;
         type = returnType;
-      } else if (args.length === 1 && returnType.getText() === 'void') {
+      } else if (args.length === 1 && returnType.isVoid()) {
         flags |= TypeFlag.Injector;
         type = args[0].getValueDeclarationOrThrow().getType();
       }
@@ -86,10 +86,10 @@ export class TypeHelper {
       [type, flags] = this.resolveNullable(type.getTypeArguments()[0], flags | TypeFlag.Async);
     } else if (target === this.refs.get('GlobalIterable', SyntaxKind.TypeAliasDeclaration)) {
       flags |= TypeFlag.Iterable;
-      type = type.getTypeArguments()[0];
+      [type] = type.getTypeArguments();
     } else if (target === this.refs.get('GlobalAsyncIterable', SyntaxKind.TypeAliasDeclaration)) {
       flags |= TypeFlag.Async | TypeFlag.Iterable;
-      type = type.getTypeArguments()[0];
+      [type] = type.getTypeArguments();
     } else if (this.isContainer(target)) {
       flags |= TypeFlag.Container;
       type = target;
