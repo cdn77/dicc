@@ -213,7 +213,11 @@ export class Compiler {
         // else definition is an object with a factory function with zero arguments and no decorators,
         // so it is already included in the compiled definition courtesy of object spread
       } else if (creates) {
-        this.compileAutoFactory(writer, src, path, creates, sources);
+        if (creates.method === 'get') {
+          this.compileAutoClassAccessor(writer, src, path, creates, object);
+        } else {
+          this.compileAutoFactory(writer, src, path, creates, sources, type, object);
+        }
       } else {
         writer.writeLine(`factory: undefined,`);
       }
@@ -317,12 +321,31 @@ export class Compiler {
     writer.write('},\n');
   }
 
+  private compileAutoClassAccessor(
+    writer: CodeBlockWriter,
+    source: string,
+    path: string,
+    creates: AutoFactoryTarget,
+    object?: boolean,
+  ): void {
+    writer.writeLine(`factory: (di) => new class extends ${join('.', source, path, object && 'factory')} {`);
+    writer.indent(() => {
+      writer.conditionalWrite(creates.async, 'async ');
+      writer.write('get() {');
+      writer.indent(() => writer.write(`return di.get('${this.builder.getTypeId(creates.type)}');`));
+      writer.write('}');
+    });
+    writer.write('},\n');
+  }
+
   private compileAutoFactory(
     writer: CodeBlockWriter,
     source: string,
     path: string,
     creates: AutoFactoryTarget,
     sources: Map<SourceFile, string>,
+    type: Type,
+    object?: boolean,
   ): void {
     const args = this.compileArguments(creates.factory.args, {
       ...(creates.args ? this.compileOverrides(writer, source, path, creates.args) : {}),
@@ -330,11 +353,17 @@ export class Compiler {
     });
 
     const inject = args.length > 0;
+    const extend = type.isClass();
+
+    const writeAsync = () => {
+      writer.conditionalWrite(creates.async, 'async ');
+    };
+
+    const writeArgs = () => {
+      writer.write(`(${creates.manualArgs.join(', ')})`);
+    };
 
     const writeFactory = () => {
-      writer.conditionalWrite(creates.async, 'async ');
-      writer.write(`(${creates.manualArgs.join(', ')}) => `);
-
       this.compileCall(
         writer,
         join(
@@ -346,19 +375,38 @@ export class Compiler {
       );
     };
 
+    const writeArrow = () => {
+      writeAsync();
+      writeArgs();
+      writer.write(' => ');
+      writeFactory();
+    };
+
     writer.write(`factory: `);
     writer.write(inject ? '(di) => ' : '() => ');
 
-    if (creates.method) {
+    if (!creates.method) {
+      writeArrow();
+    } else if (extend) {
+      writer.write(`new class extends ${join('.', source, path, object && 'factory')} {`);
+      writer.indent(() => {
+        writeAsync();
+        writer.write(creates.method!);
+        writeArgs();
+        writer.block(() => {
+          writer.write('return ');
+          writeFactory();
+        });
+      });
+      writer.write('}');
+    } else {
       writer.write('({\n');
       writer.indent(() => {
         writer.write(`${creates.method}: `);
-        writeFactory();
+        writeArrow();
         writer.write(',\n');
       });
       writer.write('})');
-    } else {
-      writeFactory();
     }
 
     writer.write(',\n');

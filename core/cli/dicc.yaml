@@ -1,12 +1,15 @@
 containers:
-  src/bootstrap.ts:
-    className: DiccContainer
+  src/bootstrap2.ts:
+    className: ThiccContainer
+    lazyImports: false
     resources:
-      src/argv.ts: ~
-      src/autowiring.ts: ~
-      src/checker.ts: ~
-      src/configLoader.ts: ~
-      src/definitions.ts: ~
-      src/definitionScanner.ts: ~
-      src/sourceFiles.ts: ~
-      src/typeHelper.ts: ~
+#      src/argv.ts: ~
+#      src/autowiring.ts: ~
+#      src/checker.ts: ~
+#      src/configLoader.ts: ~
+#      src/definitions.ts: ~
+      src/definitions2.ts: ~
+      src/decco.ts: ~
+#      src/definitionScanner.ts: ~
+#      src/sourceFiles.ts: ~
+#      src/typeHelper.ts: ~

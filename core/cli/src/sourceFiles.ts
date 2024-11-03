@@ -17,7 +17,7 @@ export class SourceFiles {
     for (const [outputPath, options] of Object.entries(config.containers)) {
       const inputs = new Map(Object.entries(options.resources).map(([resource, opts]) => [
         resource,
-        project.getSourceFiles(createSourceGlobs(resource, opts?.exclude ?? [])),
+        project.addSourceFilesAtPaths(createSourceGlobs(resource, opts?.exclude ?? [])),
       ]));
 
       const output = project.createSourceFile(outputPath, createEmptyOutput(options.className), {

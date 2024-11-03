@@ -13,39 +13,48 @@ export class Checker {
 
   checkAutoFactories(builder: ContainerBuilder): void {
     for (const definition of builder.getDefinitions()) {
-      if (!definition.factory && definition.type.isInterface()) {
-        const [signature, method] = this.helper.resolveAutoFactorySignature(definition.type);
+      if (definition.factory) {
+        definition.id === '#HelloFactory.0' && this.logger.warning(`${definition.id} has factory`);
+        continue;
+      }
 
-        if (!signature) {
-          continue;
-        }
+      const [signature, method] = this.helper.resolveAutoFactorySignature(definition.type);
 
-        const [serviceType, async] = this.helper.unwrapAsyncType(signature.getReturnType());
-        const [serviceDef, ...rest] = builder.getByType(serviceType);
+      if (!signature) {
+        definition.id === '#HelloFactory.0' && this.logger.warning(`${definition.id} has no signature`);
+        continue;
+      }
 
-        if (!serviceDef) {
-          continue;
-        } else if (rest.length) {
-          throw new DefinitionError(`Multiple services satisfy return type of auto factory '${definition.id}'`);
-        } else if (!serviceDef.factory) {
-          throw new DefinitionError(`Cannot auto-implement factory '${definition.id}': unable to resolve target service factory`);
-        }
+      const [serviceType, async] = this.helper.unwrapAsyncType(signature.getReturnType());
+      const [serviceDef, ...rest] = builder.getByType(serviceType);
 
-        const manualArgs = signature.getParameters().map((p) => p.getName());
+      if (!serviceDef) {
+        definition.id === '#HelloFactory.0' && this.logger.warning(`${definition.id} has no target service`);
+        continue;
+      } else if (rest.length) {
+        throw new DefinitionError(`Multiple services satisfy return type of auto factory '${definition.id}'`);
+      } else if (!serviceDef.factory) {
+        throw new DefinitionError(`Cannot auto-implement factory '${definition.id}': unable to resolve target service factory`);
+      }
 
-        definition.creates = {
-          method,
-          manualArgs,
-          async,
-          source: serviceDef.source,
-          path: serviceDef.path,
-          type: serviceDef.type,
-          object: serviceDef.object,
-          explicit: serviceDef.explicit,
-          factory: serviceDef.factory,
-          args: serviceDef.args,
-        };
+      this.logger.debug(`Promoting '${definition.id}' to auto-factory of '${serviceDef.id}'`);
 
+      const manualArgs = signature.getParameters().map((p) => p.getName());
+
+      definition.creates = {
+        method,
+        manualArgs,
+        async,
+        source: serviceDef.source,
+        path: serviceDef.path,
+        type: serviceDef.type,
+        object: serviceDef.object,
+        explicit: serviceDef.explicit,
+        factory: serviceDef.factory,
+        args: serviceDef.args,
+      };
+
+      if (method !== 'get') {
         builder.unregister(serviceDef.id);
       }
     }

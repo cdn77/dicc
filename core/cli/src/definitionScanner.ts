@@ -145,8 +145,32 @@ export class DefinitionScanner {
   }
 
   private scanClassDeclaration(ctx: ScanContext, node: ClassDeclaration): void {
-    if (node.isAbstract() || node.getTypeParameters().length) {
+    if (node.getTypeParameters().length) {
       return;
+    }
+
+    if (node.isAbstract()) {
+      if (node.getStaticMembers().length || node.getConstructors().length) {
+        this.logger.warning(`Abstract class ${node.getName()} has static members or a constructor`);
+        return;
+      }
+
+      for (const member of node.getInstanceMembers()) {
+        if (Node.isPropertyDeclaration(member)) {
+          if (!member.isReadonly() || !member.hasInitializer()) {
+            return;
+          }
+        } else if (!Node.isMethodDeclaration(member) || !member.isAbstract()) {
+          return;
+        } else {
+          const name = member.getName();
+          const params = member.getParameters();
+
+          if (name !== 'create' && (name !== 'get' || params.length !== 0)) {
+            return;
+          }
+        }
+      }
     }
 
     this.registerService(ctx, node.getType(), this.helper.resolveClassTypes(node));
@@ -245,13 +269,26 @@ export class DefinitionScanner {
     if (!definition && type.isClass()) {
       const symbol = type.getSymbolOrThrow();
       const declaration = symbol.getValueDeclarationOrThrow();
-      return [this.resolveFactoryInfo(symbol.getTypeAtLocation(declaration)), false];
+
+      return Node.isClassDeclaration(declaration) && declaration.isAbstract()
+        ? [undefined, false]
+        : [this.resolveFactoryInfo(symbol.getTypeAtLocation(declaration)), false];
     }
 
     const [factory, object] = Node.isObjectLiteralExpression(definition)
       ? [definition.getPropertyOrThrow('factory'), true]
       : [definition, false];
-    return [factory && this.resolveFactoryInfo(factory.getType()), object];
+
+    if (!factory) {
+      return [undefined, object];
+    }
+
+    const factoryType = factory.getType();
+    const declaration = factoryType.getSymbol()?.getValueDeclaration();
+
+    return Node.isClassDeclaration(declaration) && declaration.isAbstract()
+      ? [undefined, object]
+      : [this.resolveFactoryInfo(factoryType), object];
   }
 
   private resolveFactoryInfo(factoryType: Type): ServiceFactoryInfo | undefined {

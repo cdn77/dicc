@@ -20,6 +20,12 @@ export namespace debug {
     scope: 'private',
     anonymous: true,
   } satisfies ServiceDefinition<ConsoleHandler, Plugin>;
+
+  export const otherConsole = {
+    factory: (argv: Argv) => new ConsoleHandler({ threshold: argv.logLevel, timestamp: false }),
+    scope: 'private',
+    anonymous: true,
+  } satisfies ServiceDefinition<ConsoleHandler, Plugin>;
 }
 
 export const config = {
@@ -30,6 +36,7 @@ export const config = {
 export const project = {
   factory: (config: DiccConfig) => new Project({
     tsConfigFilePath: config.project,
+    skipAddingFilesFromTsConfig: true,
     manipulationSettings: {
       indentationText: IndentationText.TwoSpaces,
       newLineKind: NewLineKind.LineFeed,

@@ -5,12 +5,20 @@ import * as checker0 from './checker';
 import * as configLoader0 from './configLoader';
 import * as definitionScanner0 from './definitionScanner';
 import * as definitions0 from './definitions';
+import * as iffy0 from './iffy';
 import * as sourceFiles0 from './sourceFiles';
 import * as typeHelper0 from './typeHelper';
 
-interface Services {
+interface PublicServices {
   'debug.logger': ServiceType<typeof definitions0.debug.logger>;
   'dicc': Promise<ServiceType<typeof definitions0.dicc>>;
+}
+
+interface DynamicServices {
+  '#Iffy.0': iffy0.Iffy;
+}
+
+interface AnonymousServices {
   '#Argv.0': argv0.Argv;
   '#AutowiringFactory.0': autowiring0.AutowiringFactory;
   '#Checker.0': Promise<checker0.Checker>;
@@ -26,9 +34,9 @@ interface Services {
   '#TypeHelper.0': Promise<typeHelper0.TypeHelper>;
 }
 
-export class DiccContainer extends Container<Services>{
+export class DiccContainer extends Container<PublicServices, DynamicServices, AnonymousServices>{
   constructor() {
-    super({}, {
+    super({
       'debug.logger': {
         ...definitions0.debug.logger,
         aliases: ['#Logger.0'],

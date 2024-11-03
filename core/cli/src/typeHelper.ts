@@ -199,8 +199,9 @@ export class TypeHelper {
           && !declaration.hasModifier(SyntaxKind.PrivateKeyword)
           && !declaration.hasModifier(SyntaxKind.ProtectedKeyword)
       } catch {
-        return true; // this would happen if a class has no explicit constructor -
-                     // in that case we'd get a construct signature, but no declaration
+        // This would happen if a class has no explicit constructor -
+        // in that case we'd get a construct signature, but no declaration.
+        return true;
       }
     });
 
@@ -214,16 +215,31 @@ export class TypeHelper {
   }
 
   resolveAutoFactorySignature(type: Type): [signature?: Signature, method?: string] {
-    const [prop, ...rest] = type.getProperties();
+    const props = type.getProperties();
 
-    if (!prop) {
+    if (!props.length) {
       return [this.getFirstSignature(type.getCallSignatures(), type, false)];
-    } else if (prop.getName() !== 'create' || rest.length) {
+    }
+
+    const method = props.find((prop) => /^(get|create)$/.test(prop.getName()));
+
+    if (!method) {
+      console.log(`NO GET/CREATE: ${type.getSymbol()?.getFullyQualifiedName()}`);
       return [];
     }
 
-    const create = prop.getTypeAtLocation(prop.getDeclarations()[0]);
-    return [this.getFirstSignature(create.getCallSignatures(), type, false), 'create'];
+    const name = method.getName();
+    const signature = this.getFirstSignature(
+      method.getTypeAtLocation(method.getDeclarations()[0]).getCallSignatures(),
+      type,
+      false,
+    );
+
+    if (!signature || (name === 'get' && signature.getParameters().length > 0)) {
+      return [];
+    }
+
+    return [signature, name];
   }
 
   resolveArgumentInfo(symbol: Symbol): ArgumentInfo {

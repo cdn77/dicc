@@ -1,13 +1,7 @@
-import { Container } from './container';
+import { AbstractContainer } from './abstractContainer';
 
-export type Constructor<T = any> = { new (...args: any[]): T };
+export type Constructor<T = any> = abstract new (...args: any[]) => T;
 export type Factory<T = any> = { (...args: any[]): T };
-
-export type Intersect<Types> =
-  Types extends undefined ? any
-  : Types extends [...any]
-  ? Types extends [infer I, ...infer R] ? I & Intersect<R> : {}
-  : Types;
 
 export type MaybeOptional<T, Need extends boolean>
   = T extends undefined ? Need extends false ? T : Exclude<T, undefined> : Exclude<T, undefined>;
@@ -32,7 +26,7 @@ export type ServiceForkHook<T> = (callback: ServiceForkCallback<T, unknown>, ser
 export type ServiceForkCallback<T, R> = (fork?: T | undefined) => Promise<R> | R;
 
 export type ServiceDefinitionOptions<T = any> = {
-  factory: Constructor<T> | Factory<Promise<T | undefined> | T | undefined> | undefined;
+  factory: Constructor<T> | Factory<Promise<T | undefined> | T | undefined>;
   args?: Record<string, any>;
   scope?: ServiceScope;
   anonymous?: boolean;
@@ -41,111 +35,91 @@ export type ServiceDefinitionOptions<T = any> = {
   onDestroy?: ServiceHook<T>;
 };
 
-export type ServiceDefinition<T extends Intersect<A>, A = undefined> =
+export type ServiceDefinition<T extends A, A = any> =
   | Constructor<T>
   | Factory<Promise<T | undefined> | T | undefined>
-  | undefined
   | ServiceDefinitionOptions<T>;
 
 export type ServiceDecorator<T> = {
   decorate?: <S extends T>(service: S, ...args: any[]) => Promise<S> | S;
-  scope?: ServiceScope;
   onCreate?: ServiceHook<T>;
   onFork?: ServiceHook<T>;
   onDestroy?: ServiceHook<T>;
+  scope?: ServiceScope;
   priority?: number;
 };
+
+export interface ScopedRunner {
+  run<R>(callback: () => R | Promise<R>): Promise<R>;
+}
 
 export type ServiceType<D> =
   D extends Factory<Promise<infer T> | infer T> ? T
   : D extends { factory: Factory<Promise<infer T> | infer T> } ? T
+  : D extends { create: Factory<Promise<infer T> | infer T> } ? T
   : D extends ServiceDefinition<infer T> ? T
   : never;
 
-export const ServiceMap = Symbol('ServiceMap');
+export const PublicServices = Symbol('PublicServices');
+export const DynamicServices = Symbol('DynamicServices');
 
-export type ForeignServiceType<C extends Container<any, any>, Id extends string> =
-  C extends { [ServiceMap]?: infer Map }
-    ? Id extends keyof Map ? Map[Id] : never
+export type ForeignServiceType<C extends AbstractContainer<any>, Id extends string> =
+  C extends { [PublicServices]?: infer Map }
+    ? Id extends keyof Map ? Resolved<Map[Id]> : never
     : never;
 
-export interface ContainerParameters {
-  [key: string]: any;
-}
-
-export type Parameter<Map extends Record<string, any>, Key extends string>
-  = Key extends `${infer K}.${infer R}`
-    ? K extends keyof Map
-      ? Parameter<Map[K], R>
-      : never
-    : Key extends keyof Map
-      ? Map[Key]
-      : never;
-
-export class ParameterExpansionError extends Error {}
-export class UnknownParameterError extends ParameterExpansionError {
-  constructor(path: string) {
-    super(`Unknown parameter '${path}'`);
-  }
-}
-export class InvalidParameterPathError extends ParameterExpansionError {
-  constructor(path: string) {
-    super(`Invalid parameter path '${path}', parent key is not an object`);
-  }
-}
-
-export type CompiledServiceHook<T, Services extends Record<string, any> = {}, Parameters extends ContainerParameters = {}> = {
-  (service: T, container: Container<Services, Parameters>): void;
+export type CompiledServiceHook<T, Services extends Record<string, any> = {}> = {
+  (service: T, container: AbstractContainer<Services>): void;
 };
 
-export type CompiledAsyncServiceHook<T, Services extends Record<string, any> = {}, Parameters extends ContainerParameters = {}> = {
-  (service: T, container: Container<Services, Parameters>): Promise<void> | void;
+export type CompiledAsyncServiceHook<T, Services extends Record<string, any> = {}> = {
+  (service: T, container: AbstractContainer<Services>): Promise<void> | void;
 };
 
-export type CompiledServiceForkHook<T, Services extends Record<string, any> = {}, Parameters extends ContainerParameters = {}> = {
-  (callback: ServiceForkCallback<T, unknown>, service: T, container: Container<Services, Parameters>): Promise<unknown> | unknown;
+export type CompiledServiceForkHook<T, Services extends Record<string, any> = {}> = {
+  (callback: ServiceForkCallback<T, unknown>, service: T, container: AbstractContainer<Services>): Promise<unknown> | unknown;
 };
 
-export type CompiledServiceDefinitionOptions<T = any, Services extends Record<string, any> = {}, Parameters extends ContainerParameters = {}> = {
+export type CompiledServiceDefinitionOptions<T = any, Services extends Record<string, any> = {}> = {
   aliases?: string[];
   container?: boolean;
   scope?: ServiceScope;
-  onFork?: CompiledServiceForkHook<T, Services, Parameters>;
-  onDestroy?: CompiledAsyncServiceHook<T, Services, Parameters>;
+  onFork?: CompiledServiceForkHook<T, Services>;
+  onDestroy?: CompiledAsyncServiceHook<T, Services>;
 };
 
-export type CompiledFactory<T, Services extends Record<string, any> = {}, Parameters extends ContainerParameters = {}> = {
-  (container: Container<Services, Parameters>): T;
+export type CompiledFactory<T, Services extends Record<string, any> = {}> = {
+  (container: AbstractContainer<Services>): T;
 };
 
-export type CompiledAsyncServiceDefinition<T = any, Services extends Record<string, any> = {}, Parameters extends ContainerParameters = {}>
-  = CompiledServiceDefinitionOptions<NonNullable<T>, Services, Parameters> & {
-    factory: CompiledFactory<Promise<T> | T, Services, Parameters>;
+export type CompiledAsyncServiceDefinition<T = any, Services extends Record<string, any> = {}>
+  = CompiledServiceDefinitionOptions<NonNullable<T>, Services> & {
+    factory: CompiledFactory<Promise<T> | T, Services>;
     async: true;
-    onCreate?: CompiledAsyncServiceHook<NonNullable<T>, Services, Parameters>;
+    onCreate?: CompiledAsyncServiceHook<NonNullable<T>, Services>;
   };
 
-export type CompiledSyncServiceDefinition<T = any, Services extends Record<string, any> = {}, Parameters extends ContainerParameters = {}>
-  = CompiledServiceDefinitionOptions<NonNullable<T>, Services, Parameters> & {
-    factory: CompiledFactory<T, Services, Parameters>;
+export type CompiledSyncServiceDefinition<T = any, Services extends Record<string, any> = {}>
+  = CompiledServiceDefinitionOptions<NonNullable<T>, Services> & {
+    factory: CompiledFactory<T, Services>;
     async?: false;
-    onCreate?: CompiledServiceHook<NonNullable<T>, Services, Parameters>;
+    onCreate?: CompiledServiceHook<NonNullable<T>, Services>;
   };
 
-export type CompiledDynamicServiceDefinition<T = any, Services extends Record<string, any> = {}, Parameters extends ContainerParameters = {}>
-  = CompiledServiceDefinitionOptions<NonNullable<T>, Services, Parameters> & {
+export type CompiledDynamicServiceDefinition<T = any, Services extends Record<string, any> = {}>
+  = CompiledServiceDefinitionOptions<NonNullable<T>, Services> & {
     factory: undefined;
     async?: boolean;
-    onCreate?: CompiledAsyncServiceHook<NonNullable<T>, Services, Parameters>;
+    onCreate?: CompiledAsyncServiceHook<NonNullable<T>, Services>;
   };
 
-export type CompiledServiceDefinition<T = any, Services extends Record<string, any> = {}, Parameters extends ContainerParameters = {}> =
-  | CompiledAsyncServiceDefinition<T, Services, Parameters>
-  | CompiledSyncServiceDefinition<T, Services, Parameters>
-  | CompiledDynamicServiceDefinition<T, Services, Parameters>;
+export type CompiledServiceDefinition<T = any, Services extends Record<string, any> = {}> =
+  | CompiledAsyncServiceDefinition<T, Services>
+  | CompiledSyncServiceDefinition<T, Services>
+  | CompiledDynamicServiceDefinition<T, Services>;
 
-export type CompiledServiceDefinitionMap<Services extends Record<string, any> = {}, Parameters extends ContainerParameters = {}> = {
+export type CompiledServiceDefinitionMap<Services extends Record<string, any> = {}> = {
   [Id in keyof Services]?: Services[Id] extends Promise<infer S>
-    ? CompiledAsyncServiceDefinition<S, Services, Parameters>
-    : CompiledSyncServiceDefinition<Services[Id], Services, Parameters> | CompiledDynamicServiceDefinition<Services[Id], Services, Parameters>;
+    ? CompiledAsyncServiceDefinition<S, Services>
+    : CompiledSyncServiceDefinition<Services[Id], Services> | CompiledDynamicServiceDefinition<Services[Id], Services>;
 };
