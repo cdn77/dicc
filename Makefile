@@ -11,6 +11,10 @@ build:
 	cd core/dicc && make
 	cd core/cli && make
 
+.PHONY: tests
+tests:
+	cd core/cli && make tests
+
 .PHONY: rebuild
 rebuild:
 	cd core/dicc && make rebuild

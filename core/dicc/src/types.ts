@@ -22,8 +22,8 @@ export type IterateResult<Services extends Record<string, any>, K extends keyof 
 
 export type ServiceScope = 'global' | 'local' | 'private';
 export type ServiceHook<T> = (service: T, ...args: any[]) => Promise<void> | void;
-export type ServiceForkHook<T> = (callback: ServiceForkCallback<T, unknown>, service: T, ...args: any[]) => Promise<unknown> | unknown;
-export type ServiceForkCallback<T, R> = (fork?: T | undefined) => Promise<R> | R;
+export type ServiceForkHook<T> = (callback: ServiceForkHookCallback<T, unknown>, service: T, ...args: any[]) => Promise<unknown> | unknown;
+export type ServiceForkHookCallback<T, R> = (localService?: T | undefined) => Promise<R> | R;
 
 export type ServiceDefinitionOptions<T = any> = {
   factory: Constructor<T> | Factory<Promise<T | undefined> | T | undefined>;
@@ -77,7 +77,7 @@ export type CompiledAsyncServiceHook<T, Services extends Record<string, any> = {
 };
 
 export type CompiledServiceForkHook<T, Services extends Record<string, any> = {}> = {
-  (callback: ServiceForkCallback<T, unknown>, service: T, container: AbstractContainer<Services>): Promise<unknown> | unknown;
+  (callback: ServiceForkHookCallback<T, unknown>, service: T, container: AbstractContainer<Services>): Promise<unknown> | unknown;
 };
 
 export type CompiledServiceDefinitionOptions<T = any, Services extends Record<string, any> = {}> = {

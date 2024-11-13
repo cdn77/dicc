@@ -34,16 +34,14 @@ npm i --save dicc
  - [Injecting dependencies][5] - all the ways services can depend on each other
  - [Auto-generated factories][6] - save yourself some keystrokes
  - [Service decorators][7] - augment multiple service definitions at once
- - [Container parameters][8] - define runtime parameters for the entire
-   container
- - [Merging containers][9] - split your application container into multiple
+ - [Merging containers][8] - split your application container into multiple
    parts and then merge them back together
- - [Config and compilation][10] - how to configure the compiler, how to compile
+ - [Config and compilation][9] - how to configure the compiler, how to compile
    a container and how to use the container at runtime
 
 ## Integration recipes
 
- - [Express][11]
+ - [Express][10]
 
 ## Developer documentation
 
@@ -58,7 +56,6 @@ to DICC or to extend it with custom functionality. Coming soon!
 [5]: user/05-injecting-dependencies.md
 [6]: user/06-auto-factories.md
 [7]: user/07-service-decorators.md
-[8]: user/08-container-parameters.md
-[9]: user/09-merging-containers.md
-[10]: user/10-config-and-compilation.md
-[11]: recipes/01-express.md
+[8]: user/08-merging-containers.md
+[9]: user/09-config-and-compilation.md
+[10]: recipes/01-express.md

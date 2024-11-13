@@ -159,7 +159,7 @@ export class Logger {
 }
 ```
 
-Last, but not least, you can inject _iterables_ - this also allows you to inject
+Similarly to arrays, you can inject _iterables_ - this also allows you to inject
 a bunch of services of the same type, but unlike injecting an array (or an
 accessor for an array), each service in the iterable will be lazily resolved
 when the iterable reaches it. Works for sync and async services:
@@ -193,6 +193,23 @@ _think_ about it too much, because DICC will throw an error during compilation
 if you try to inject a non-async accessor or iterable for something which _is_
 async.
 
+
+## Injecting the container
+
+Simply put, injecting the container into a service is intentionally impossible
+in DICC. "Container-aware" services are a direct breach of the entire reason
+for DICC to exist. But you don't need that: you can inject service accessors
+and injectors instead of using container methods manually. The only remaining
+reason for accessing the container directly in application code outside of
+application entrypoints would be to call the `container.run()` method at the
+start of e.g. HTTP requests; and to that end, you can instead declare
+a dependency on a service implementing the `ScopedRunner` interface exported
+from `dicc`; this interface declares the `run()` method with the same signature
+as the container's, and the compiler will inject an appropriate implementation
+into such a dependency, leaving the container safely separate from your code.
+
+
 **Next**: [Auto-generated service factories][1]
+
 
 [1]: ./06-auto-factories.md

@@ -9,12 +9,16 @@ clean:
 	rm -rf dist
 
 .PHONY: compile
-compile:
-	dist/cli.js
+compile: dist
+	dist/cli/dicc.js
 
 dist:
 	../../node_modules/.bin/tsc
-	chmod +x dist/cli.js
+	chmod +x dist/cli/dicc.js
+
+.PHONY: tests
+tests: dist
+	node --test tests
 
 .PHONY: major-release
 major-release:

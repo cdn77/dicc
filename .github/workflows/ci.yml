@@ -18,6 +18,8 @@ jobs:
         run: npm ci
       - name: Build packages
         run: make
+      - name: Run tests
+        run: make tests
       - name: Publish packages
         if: github.ref_name == 'main'
         run: |

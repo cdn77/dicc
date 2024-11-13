@@ -7,14 +7,17 @@ As briefly mentioned before, an explicit service definition is a special
 import { ServiceDefinition } from 'dicc';
 
 // the simplest kind of definition - an instantiable class service;
-// note that this would be almost equivalent to just `export { ServiceOne }`,
-// except that no aliases are automatically registered:
+// note that the only difference between this and directly exporting
+// ServiceOne is that the service will be public when defined like this:
 export const one = ServiceOne satisfies ServiceDefinition<ServiceOne>;
 
-// a definition with an alias:
+// a definition with an explicit alias:
 export const twoWithOneAlias = ServiceTwo satisfies ServiceDefinition<ServiceTwo, AliasOne>;
-// multiple aliases can be specified as a tuple:
-export const twoWithMultipleAliases = ServiceTwo satisfies ServiceDefinition<ServiceTwo, [AliasOne, AliasTwo]>;
+// multiple aliases can be specified as an intersection type:
+export const twoWithMultipleAliases = ServiceTwo satisfies ServiceDefinition<ServiceTwo, AliasOne & AliasTwo>;
+// implicit aliases from ancestor classes and interfaces implemented
+// by a service class can be disabled entirely by specifying 'unknown':
+export const twoWithNoAliases = ServiceTwo satisfies ServiceDefinition<ServiceTwo, unknown>;
 
 // a definition using a factory function:
 export const three = (() => new ServiceThree()) satisfies ServiceDefinition<ServiceThree>;
@@ -82,16 +85,6 @@ export const alsoFive = {
 export const maybeSix = (
   () => process.env.WITH_SIX ? new ServiceSix() : undefined
 ) satisfies ServiceDefinition<ServiceSix>;
-
-// factories themselves can be undefined - this makes the service dynamic,
-// that is, the compiler can include code to inject it as a dependency to other
-// services, but the runtime container can't create it and instead you need to
-// register it manually:
-export const seven = undefined satisfies ServiceDefinition<ServiceSeven>;
-export const alsoSeven = {
-  factory: undefined,
-  onCreate() { console.log('Seven registered in the container!') },
-} satisfies ServiceDefinition<ServiceSeven>;
 
 // an explicit service definition can override factory arguments by name;
 // this is useful if you just need to override one or two arguments and
@@ -164,13 +157,6 @@ container.get('orm.repository.author');
 container.get('controllers.listBooks');
 // etc
 ```
-
-> An explicit service definition overrides a simple class or interface export of
-> the same type, so you can simply `export * from '../services'` at the start of
-> a resource file, and then follow that with explicit definitions for services
-> which need some tweaks - such services won't be registered twice. If you do
-> need to register a given service multiple times, you must provide explicit
-> definitions for each registration.
 
 Now that we know how to tell DICC about services, let's see how we can tell it
 what those services depend on.

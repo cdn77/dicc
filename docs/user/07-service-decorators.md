@@ -37,14 +37,13 @@ export const notifyCreated = {
 } satisfies ServiceDecorator<CommonInterface>;
 ```
 
-Service decorators can add any of the three service lifecycle hooks; the
+Service decorators can add any of the three service lifecycle hooks. The
 `onCreate` and `onDestroy` hooks follow the same semantics as if they were
-registered on the service definitions, but the `onFork` hook works slightly
-differently: if the service definition has an `onFork` hook which returns a
-forked instance of the service, all the service's decorators will receive that
-instance instead of the original service, and the decorators' `onFork` hooks'
-return values are ignored, meaning a decorator's `onFork` hook cannot be used
-to create a forked service instance.
+registered on the service definitions. The `onFork` hook works slightly
+differently: if the service definition has an `onFork` hook which passes
+a forked instance of the service to the provided callback, all the service's
+decorators' `onFork` hooks will receive that instance instead of
+the original service.
 
 Service decorators can also be applied to the output of service factories:
 
@@ -56,11 +55,9 @@ export const withLoggedMethodCalls = {
 } satisfies ServiceDecorator<SomeInterface>;
 ```
 
-Currently, the `decorate` hook must return either an instance of the same class
-as the original service which was passed in, or a `Proxy` for the same. In the
-future, decorators might possibly be given the ability to completely override
-the service's type, although I will have to think hard on all the ramifications
-of such a capability.
+The `decorate` hook must return either an instance of the same class as the
+original service which was passed in, or a descendant class, or a `Proxy` for
+the same.
 
 Decorators may be given a numeric _priority_ to influence the order in which
 they are applied to decorated services. The `priority` option defaults to zero,
@@ -68,9 +65,10 @@ and decorators are applied in descending order of priority. There are no
 predetermined priority levels, you can simply choose whichever numbers make
 sense for your use case. You can e.g. use negative numbers for decorators which
 need to run later than any default-priority decorators etc. The order of
-decorators with the same priority is undefined.
+decorators with the same priority is undefined. A service's own hooks are always
+executed first, followed by any decorator hooks ordered by their priority.
 
 
-**Next**: [Container parameters][1]
+**Next**: [Merging containers][1]
 
-[1]: ./08-container-parameters.md
+[1]: ./08-merging-containers.md

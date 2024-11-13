@@ -29,3 +29,17 @@ export function createAsyncIterator<T, R>(input: T[], transform: (value: T) => P
     },
   };
 }
+
+export async function * toAsyncIterable<T>(iterable: Iterable<T>): AsyncIterable<T> {
+  yield * iterable;
+}
+
+export async function toSyncIterable<T>(iterable: AsyncIterable<T>): Promise<Iterable<T>> {
+  const items: T[] = [];
+
+  for await (const item of iterable) {
+    items.push(item);
+  }
+
+  return items;
+}

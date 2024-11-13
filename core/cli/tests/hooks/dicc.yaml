@@ -1,0 +1,5 @@
+containers:
+  generatedContainer.ts:
+    className: TestContainer
+    resources:
+      definitions.ts: ~

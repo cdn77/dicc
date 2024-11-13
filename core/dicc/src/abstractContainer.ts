@@ -1,4 +1,4 @@
-import { AsyncLocalStorage } from 'async_hooks';
+import { AsyncContextShim as AsyncContext } from './asyncContext';
 import { ServiceStore } from './serviceStore';
 import {
   CompiledAsyncServiceDefinition,
@@ -22,7 +22,7 @@ export abstract class AbstractContainer<Services extends Record<string, any> = {
   private readonly definitions: Map<string, CompiledServiceDefinition<any, Services>> = new Map();
   private readonly aliases: Map<string, string[]> = new Map();
   private readonly globalServices: ServiceStore = new ServiceStore();
-  private readonly localServices: AsyncLocalStorage<ServiceStore> = new AsyncLocalStorage();
+  private readonly localServices: AsyncContext.Variable<ServiceStore> = new AsyncContext.Variable();
   private readonly forkHooks: [string, CompiledServiceForkHook<any, Services>][] = [];
   private readonly creating: Set<string> = new Set();
 
@@ -95,8 +95,8 @@ export abstract class AbstractContainer<Services extends Record<string, any> = {
     const store = new ServiceStore(parent);
     const chain = this.forkHooks.reduceRight((next, [id, hook]) => {
       return async () => {
-        const callback = async (fork?: any) => {
-          fork && store.set(id, fork);
+        const callback = async (localService?: any) => {
+          localService && store.set(id, localService);
           return next();
         };
 
@@ -117,7 +117,7 @@ export abstract class AbstractContainer<Services extends Record<string, any> = {
 
   async reset(): Promise<void> {
     if (this.currentStore !== this.globalServices) {
-      throw new Error(`Only the global container instance can be reset, this is a fork`);
+      throw new Error(`The container can only be reset from the global scope, this call is running inside an async local scope`);
     }
 
     for (const [id, definition] of this.definitions) {
@@ -175,7 +175,7 @@ export abstract class AbstractContainer<Services extends Record<string, any> = {
       }
 
       return undefined;
-    } else if (definition.scope === 'local' && !this.localServices.getStore()) {
+    } else if (definition.scope === 'local' && !this.localServices.get()) {
       throw new Error(`Cannot create local service '${id}' in global scope`);
     } else if (definition.scope !== 'private') {
       if (this.creating.has(id)) {
@@ -222,14 +222,14 @@ export abstract class AbstractContainer<Services extends Record<string, any> = {
   }
 
   private get currentStore(): ServiceStore {
-    return this.localServices.getStore() ?? this.globalServices;
+    return this.localServices.get() ?? this.globalServices;
   }
 
   private getStore(scope: ServiceScope = 'global'): ServiceStore | undefined {
     if (scope === 'global') {
       return this.globalServices;
     } else if (scope === 'local') {
-      const store = this.localServices.getStore();
+      const store = this.localServices.get();
 
       if (!store) {
         throw new Error('Cannot access local store in global context');

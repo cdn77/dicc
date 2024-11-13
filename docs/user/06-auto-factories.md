@@ -41,11 +41,6 @@ implementation for you and inject it where appropriate:
 export interface UserNotificationChannelFactory {
   create(username: string): UserNotificationChannel;
 }
-
-// or alternatively just as a call signature:
-export interface UserNotificationChannelFactory {
-  (username: string): UserNotificationChannel;
-}
 ```
 
 Some notes on how it works:
@@ -57,11 +52,41 @@ Some notes on how it works:
   service's arguments _by name_ during compilation. This means that the
   factory's arguments' positions and order can be arbitrary - they don't have
   to be in the same order as the target service's arguments.
-- The generated factory will resolve dependencies of the target service lazily
-  when creating an instance of the target service; this means that if either
-  the target service itself or any of its dependencies is async, the factory
-  needs to return a Promise for the target service. An error will be thrown
-  during compilation if this requirement is not satisfied.
+- The generated factory will attempt to resolve the target service's
+  dependencies as lazily as possible; but if the `create()` method doesn't
+  return a Promise and one or more of the target service's dependencies ends up
+  being async, the factory service itself will be made async and the async
+  dependencies will be resolved eagerly when creating an instance of the factory
+  class, so that the `create()` method can stay synchronous.
+
+Auto-generated factories can also be generated from abstract classes: if the
+compiler encounters an abstract class with a single abstract `create()` method,
+it will create a factory service by extending the class and implementing the
+`create()` method using the same mechanism as for an interface. Such a factory
+class can therefore serve other purposes than just creating an instance of the
+target service: it can e.g. carry some metadata about the target service, so
+that you can inject a list of factories and then determine at runtime which
+target service you want to instantiate based on the metadata. This can be useful
+e.g. for GraphQL class resolvers, where each resolver could have a corresponding
+factory class which knows which operation the resolver belongs to, so that a
+root resolver can examine the factory classes and instantiate the appropriate
+resolver for an incoming GraphQL operation.
+
+## Auto-implemented accessor services
+
+A special case of auto-implemented factories are _accessor services_, which
+are interfaces (or abstract classes) with a single (abstract) `get()` method
+with no arguments. They behave exactly the same as auto-implemented factory
+services, with the core distinction being that the target service isn't
+unregistered from the container, and therefore its lifecycle can be managed
+using the `scope` option as usual, instead of effectively making it `private`
+as auto-factories do.
+
+Since auto-implemented factories and accessors can be derived from abstract
+classes (and therefore can carry additional data available before accessing the
+target service), you can use them for similar purposes as you would use service
+tags in other DI implementations, while retaining strict typing.
+
 
 **Next**: [Service decorators][1]
 

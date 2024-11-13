@@ -29,7 +29,7 @@
     "node": ">=18"
   },
   "bin": {
-    "dicc": "dist/cli.js"
+    "dicc": "dist/cli/dicc.js"
   },
   "dependencies": {
     "@debugr/console": "^3.0.0-rc.10",

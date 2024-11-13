@@ -1,0 +1,9 @@
+containers:
+  generatedParentContainer.ts:
+    className: TestParentContainer
+    resources:
+      parentDefinitions.ts: ~
+  generatedChildContainer.ts:
+    className: TestChildContainer
+    resources:
+      childDefinitions.ts: ~

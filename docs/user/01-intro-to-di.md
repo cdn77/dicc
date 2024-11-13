@@ -75,8 +75,9 @@ switch to e.g. Slack or text messages in the future, and then the API wouldn't
 make sense). The second thing is that it's generally a good idea to specify
 dependencies using _interfaces_, rather than depending on a specific
 implementation of that interface - so instead of depending on e.g.
-`EmailAlertSender`, you'd depend on something like `AlertSenderInterface`, and
-the `EmailAlertSender` class would implement this interface.
+`class EmailAlertSender`, you'd depend on something like
+`interface AlertSender`, and the `EmailAlertSender` class would implement this
+interface.
 
 **Next**: [Intro to DICC][1]
 

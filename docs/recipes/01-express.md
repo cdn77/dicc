@@ -1,9 +1,9 @@
-# Using `container.fork()` with Express
+# Using `container.run()` with Express
 
 The sadly ubiquitous Express HTTP server doesn't mesh well with async code.
 This means some care must be taken when integrating DICC into an Express-based
-application, otherwise container forking and local services won't work as
-expected.
+application, otherwise the async context tracking within the `container.run()`
+callback required to make locally-scoped services possible simply won't work.
 
 ## TL;DR - how do I use DICC with Express?
 
@@ -11,7 +11,7 @@ Just use the following code snippet as your very first middleware:
 
 ```typescript
 app.use((req, res, next) => {
-  container.fork(async () => {
+  container.run(async () => {
     next();
 
     if (!res.closed) {
@@ -75,14 +75,14 @@ Notice the first and second middlewares log the end of their execution _before_
 the last middleware finishes executing, even though each middleware awaits the
 `next()` call. This means that `mw 1` has no direct way of telling when `mw 3`
 (or any other middleware) finished handling the request. If we were to naively
-use something like `container.fork(next)` in `mw 1`, the forked context would
+use something like `container.run(next)` in `mw 1`, the local context would
 only be available during the synchronous part of the subsequent middlewares,
-because the `fork()` method awaits the provided callback and cleans up the
-forked context when the callback resolves - but as we've seen, `next()` doesn't
+because the `run()` method awaits the provided callback and cleans up the
+local context when the callback resolves - but as we've seen, `next()` doesn't
 return a Promise, so it will resolve immediately when all synchronous code has
 been executed.
 
 The snippet at the beginning of this recipe works by waiting for the response
-stream to be closed before returning from the fork callback. Unless the app
-crashes catastrophically, this will ensure that the forked DI context will stay
-alive for the entire duration of the request handling pipeline.
+stream to be closed before returning from the callback. Unless the app crashes
+catastrophically, this will ensure that the local DI context will stay alive
+for the entire duration of the request handling pipeline.
