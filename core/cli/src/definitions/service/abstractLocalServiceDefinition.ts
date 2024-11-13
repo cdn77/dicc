@@ -31,6 +31,7 @@ export class AbstractLocalServiceDefinition extends AbstractServiceDefinition {
     this.node = options.node;
     this.declaration = options.declaration;
     this.container = options.container ?? false;
+    this.autoImplement = options.autoImplement;
   }
 
   isLocal(): this is LocalServiceDefinition {

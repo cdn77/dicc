@@ -1,17 +1,19 @@
 import { Logger } from '@debugr/core';
 import { dirname, resolve } from 'path';
 import { CompilerConfig } from '../config';
-import { ConfigError, ExtensionError } from '../errors';
+import { ExtensionError } from '../errors';
 import { EventDispatcher } from '../events';
 import { ModuleResolver, ReferenceResolverFactory, TypeHelper } from '../utils';
 import { CompilerExtension } from './compilerExtension';
 import {
   CompilerExtensionConstructor,
-  CompilerExtensionInjectSpecifier,
+  CompilerExtensionInjectSpecifier as InjectSpec,
   CompilerExtensionReferences,
 } from './types';
 
 export class ExtensionLoader {
+  private tsNodeRegistered: boolean = false;
+
   constructor(
     private readonly eventDispatcher: EventDispatcher,
     private readonly getModuleResolver: () => Promise<ModuleResolver>,
@@ -39,18 +41,18 @@ export class ExtensionLoader {
   private async resolveInjections(
     extensionId: string,
     extensionPath: string,
-    services: CompilerExtensionInjectSpecifier[],
+    services: InjectSpec[],
     references?: CompilerExtensionReferences,
   ): Promise<any[]> {
     const args: any[] = [];
 
     for (const specifier of services) {
       switch (specifier) {
-        case 'eventDispatcher': args.push(this.eventDispatcher); break;
-        case 'moduleResolver': args.push(await this.getModuleResolver()); break;
-        case 'typeHelper': args.push(await this.getTypeHelper()); break;
-        case 'logger': args.push(this.logger); break;
-        case 'referenceResolver':
+        case InjectSpec.EventDispatcher: args.push(this.eventDispatcher); break;
+        case InjectSpec.ModuleResolver: args.push(await this.getModuleResolver()); break;
+        case InjectSpec.TypeHelper: args.push(await this.getTypeHelper()); break;
+        case InjectSpec.Logger: args.push(this.logger); break;
+        case InjectSpec.ReferenceResolver:
           if (!references) {
             throw new ExtensionError(`Extension requires injection of reference resolver but doesn't specify a reference module`, extensionId);
           }
@@ -66,7 +68,7 @@ export class ExtensionLoader {
 
   private async resolveExtension(extension: string, configPath: string): Promise<[path: string, constructor: CompilerExtensionConstructor]> {
     const [specifier, name = 'default'] = extension.split(/#/);
-    const [path, module] = await this.importExtension(specifier, configPath);
+    const [path, module] = await this.importExtension(extension, specifier, configPath);
 
     if (!(name in module)) {
       if (typeof module === 'function') {
@@ -74,24 +76,52 @@ export class ExtensionLoader {
       }
 
       const hint = name === 'default' ? 'default export' : `export named '${name}'`;
-      throw new ConfigError(`Unable to import extension '${specifier}': module has no ${hint}`);
+      throw new ExtensionError(`Unable to import extension '${specifier}': module has no ${hint}`, extension);
     } else if (typeof module[name] !== 'function') {
-      throw new ConfigError(`Unable to import extension '${specifier}': '${name}' is not a function`);
+      throw new ExtensionError(`Unable to import extension '${specifier}': '${name}' is not a function`, extension);
     }
 
     return [path, module[name]];
   }
 
-  private async importExtension(specifier: string, configPath: string): Promise<[path: string, module: any]> {
+  private async importExtension(extension: string, specifier: string, configPath: string): Promise<[path: string, module: any]> {
     try {
       if (specifier.startsWith('.')) {
         const path = resolve(dirname(configPath), specifier);
-        return [path, await import(path)];
+        return [path, await this.importModule(extension, path)];
       } else {
-        return [require.resolve(specifier), await import(specifier)];
+        return [require.resolve(specifier), await this.importModule(extension, specifier)];
       }
     } catch (e: any) {
-      throw new ConfigError(`Unable to import extension '${specifier}': ${e.message}`, configPath);
+      throw new ExtensionError(`Unable to import extension '${specifier}': ${e.message}`, extension);
+    }
+  }
+
+  private async importModule(extension: string, specifier: string): Promise<any> {
+    if (/\.ts$/i.test(specifier)) {
+      await this.ensureTsNodeRegistered(extension);
+      return require(specifier);
+    }
+
+    return import(specifier);
+  }
+
+  private async ensureTsNodeRegistered(extension: string): Promise<void> {
+    if (this.tsNodeRegistered) {
+      return;
+    }
+
+    this.tsNodeRegistered = true;
+
+    try {
+      const tsNode = await import('ts-node');
+
+      tsNode.register({
+        transpileOnly: true,
+        logError: true,
+      });
+    } catch (e: any) {
+      throw new ExtensionError('Cannot load ts-node, is it installed?', extension);
     }
   }
 }

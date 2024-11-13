@@ -1,0 +1,7 @@
+extensions:
+  ./resolversExtension.ts#ResolversExtension: ~
+containers:
+  generatedContainer.ts:
+    className: TestContainer
+    resources:
+      definitions.ts: ~

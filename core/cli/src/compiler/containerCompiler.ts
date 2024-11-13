@@ -1,4 +1,4 @@
-import { Container, TypeSpecifierWithAsync } from '../analysis';
+import { Container, TypeSpecifierSet, TypeSpecifierWithAsync } from '../analysis';
 import { getFirst, sortMap } from '../utils';
 import { ServiceCompiler } from './serviceCompiler';
 import { formatType, compareKeys, compareResources, compareTypes } from './utils';
@@ -82,12 +82,12 @@ export class ContainerCompiler {
     return writer.toString();
   }
 
-  private compileTypeMap(map: Map<string, TypeSpecifierWithAsync | Set<TypeSpecifierWithAsync>>): string {
+  private compileTypeMap(map: Map<string, TypeSpecifierWithAsync | TypeSpecifierSet>): string {
     const writer = this.writerFactory.create();
 
     for (const [alias, typeOrTypes] of sortMap(map, compareKeys)) {
       let async = false;
-      const types = (typeOrTypes instanceof Set ? [...typeOrTypes] : [typeOrTypes])
+      const types = (typeOrTypes instanceof TypeSpecifierSet ? [...typeOrTypes] : [typeOrTypes])
         .sort(compareTypes)
         .map((type) => {
           type.async && (async = true);

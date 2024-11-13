@@ -7,7 +7,7 @@ import {
   CallableDefinition,
   DecoratorDefinition,
   FactoryDefinition,
-  ForcedArgument,
+  LiteralDefinition,
   ForeignServiceDefinition,
   LocalServiceDefinition,
   PromiseType,
@@ -428,8 +428,8 @@ export class ServiceAnalyser {
     scope: ServiceScope,
     override: ArgumentOverride,
   ): LiteralArgument | OverriddenArgument {
-    if (override instanceof ForcedArgument) {
-      return { kind: 'literal', source: override.value, async: 'none' };
+    if (override instanceof LiteralDefinition) {
+      return { kind: 'literal', source: override.source, async: 'none' };
     }
 
     let value: OverrideCall | OverrideValue;
@@ -509,11 +509,11 @@ export class ServiceAnalyser {
 }
 
 function indexedArgs(...values: string[]): Map<string | number, ArgumentOverride> {
-  return new Map(values.map((value, i) => [i, new ForcedArgument(value)]));
+  return new Map(values.map((value, i) => [i, new LiteralDefinition(value)]));
 }
 
 function namedArgs(...names: string[]): Map<string | number, ArgumentOverride> {
-  return new Map(names.map((name) => [name, new ForcedArgument(name)]));
+  return new Map(names.map((name) => [name, new LiteralDefinition(name)]));
 }
 
 function isServiceAsync(service: Service): boolean {

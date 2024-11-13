@@ -9,7 +9,8 @@ clean:
 	rm -rf dist
 
 dist:
-	../../node_modules/.bin/tsc
+	../../node_modules/.bin/tsup-node src/index.ts
+	rm -f dist/index.d.mts
 
 .PHONY: major-release
 major-release:

@@ -16,7 +16,6 @@ import { ContainerBuilder, ServiceAdded } from '../container';
 import {
   ArgumentOverride,
   CallableDefinition,
-  DeclarationNodeDiscovered,
   PromiseType,
   SingleType,
   ExplicitServiceDefinitionOptions,
@@ -27,7 +26,7 @@ import {
 } from '../definitions';
 import { DefinitionError, UserCodeContext } from '../errors';
 import { EventSubscription } from '../events';
-import { DeclarationNode, TypeHelper } from '../utils';
+import { DeclarationNode, DeclarationNodeDiscovered, TypeHelper } from '../utils';
 import { CompilerExtension } from './compilerExtension';
 import { getPropertyLiteralValueIfKind, subpath, validateServiceScope } from './helpers';
 
@@ -248,7 +247,11 @@ export class ServicesExtension extends CompilerExtension {
       }
     }
 
-    if (!definition.declaration || (definition.factory && definition.factory.method !== 'constructor')) {
+    if (
+      !definition.declaration
+      || (definition.factory && definition.factory.method !== 'constructor')
+      || definition.autoImplement
+    ) {
       return;
     }
 

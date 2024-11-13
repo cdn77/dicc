@@ -15,9 +15,19 @@ import {
   VariableDeclaration,
 } from 'ts-morph';
 import { ContainerBuilder } from '../container';
-import { EventDispatcher } from '../events';
-import { DeclarationNode } from '../utils';
-import { DeclarationNodeDiscovered } from './events';
+import { Event, EventDispatcher } from '../events';
+import { DeclarationNode } from './types';
+
+export class DeclarationNodeDiscovered extends Event {
+  constructor(
+    public readonly resource: SourceFile,
+    public readonly path: string,
+    public readonly node: DeclarationNode,
+    public readonly builder: ContainerBuilder,
+  ) {
+    super();
+  }
+}
 
 type EnqueuedResource = {
   builder: ContainerBuilder;

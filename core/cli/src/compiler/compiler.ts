@@ -1,7 +1,7 @@
 import { ContainerAnalyser } from '../analysis';
 import { BuilderMap } from '../container';
-import { ResourceScanner } from '../definitions';
 import { CompilerExtension, ExtensionLoader } from '../extensions';
+import { ResourceScanner } from '../utils';
 import { ContainerCompiler } from './containerCompiler';
 
 export class Compiler {
@@ -21,7 +21,9 @@ export class Compiler {
 
     this.loadResources();
 
-    for (const [builder, container] of this.containerAnalyser.analyse(this.builders)) {
+    const containers = this.containerAnalyser.analyse(this.builders);
+
+    for (const [builder, container] of containers) {
       builder.sourceFile.replaceWithText(this.containerCompiler.compile(container));
     }
 

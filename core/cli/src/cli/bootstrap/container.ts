@@ -1,11 +1,10 @@
 import { Container, type ServiceType } from 'dicc';
-import * as di4 from '../../analysis/di';
-import type * as di6 from '../../compiler/di';
-import type * as di5 from '../../container/di';
-import type * as di3 from '../../definitions/di';
-import type * as di0 from '../../extensions/di';
-import type * as di1 from '../../utils/di';
-import * as di2 from '../di';
+import * as analysis0 from '../../analysis';
+import type * as compiler0 from '../../compiler';
+import type * as container0 from '../../container';
+import type * as extensions0 from '../../extensions';
+import type * as utils0 from '../../utils';
+import * as argv0 from '../argv';
 import * as definitions0 from './definitions';
 
 interface PublicServices {
@@ -15,39 +14,39 @@ interface PublicServices {
 interface DynamicServices {}
 
 interface AnonymousServices {
-  '#Argv0.0': di2.Argv;
-  '#AutowiringFactory0.0': Promise<di4.AutowiringFactory>;
-  '#BuilderMap0.0': Promise<di5.BuilderMap>;
-  '#BuilderReflectionFactory0.0': di4.BuilderReflectionFactory;
+  '#Argv0.0': argv0.Argv;
+  '#AutowiringFactory0.0': Promise<analysis0.AutowiringFactory>;
+  '#BuilderMap0.0': Promise<container0.BuilderMap>;
+  '#BuilderReflectionFactory0.0': analysis0.BuilderReflectionFactory;
   '#CompilerConfig0.0': Promise<ServiceType<typeof definitions0.config.compilerConfig>>;
   '#CompilerExtension0': Promise<
-    | di0.DecoratorsExtension
-    | di0.ServicesExtension
+    | extensions0.DecoratorsExtension
+    | extensions0.ServicesExtension
   >;
   '#ConfigLoader0.0': ServiceType<typeof definitions0.config.loader>;
   '#ConsoleHandler0.0': ServiceType<typeof definitions0.debug.console>;
-  '#ContainerAnalyser0.0': Promise<di4.ContainerAnalyser>;
-  '#ContainerBuilderFactory0.0': Promise<di5.ContainerBuilderFactory>;
-  '#ContainerCompiler0.0': Promise<di6.ContainerCompiler>;
-  '#ContainerReflector0.0': Promise<di4.ContainerReflector>;
-  '#DecoratorsExtension0.0': Promise<di0.DecoratorsExtension>;
+  '#ContainerAnalyser0.0': Promise<analysis0.ContainerAnalyser>;
+  '#ContainerBuilderFactory0.0': Promise<container0.ContainerBuilderFactory>;
+  '#ContainerCompiler0.0': Promise<compiler0.ContainerCompiler>;
+  '#ContainerReflector0.0': Promise<analysis0.ContainerReflector>;
+  '#DecoratorsExtension0.0': Promise<extensions0.DecoratorsExtension>;
   '#EventDispatcher0.0': Promise<ServiceType<typeof definitions0.eventDispatcher>>;
   '#EventSubscriber0': Promise<
-    | di0.DecoratorsExtension
-    | di0.ServicesExtension
+    | extensions0.DecoratorsExtension
+    | extensions0.ServicesExtension
   >;
-  '#ExtensionLoader0.0': Promise<di0.ExtensionLoader>;
-  '#ExternalReflectionFactory0.0': Promise<di4.ExternalReflectionFactory>;
+  '#ExtensionLoader0.0': Promise<extensions0.ExtensionLoader>;
+  '#ExternalReflectionFactory0.0': Promise<analysis0.ExternalReflectionFactory>;
   '#Logger0.0': ServiceType<typeof definitions0.debug.logger>;
-  '#ModuleResolver0.0': Promise<di1.ModuleResolver>;
+  '#ModuleResolver0.0': Promise<utils0.ModuleResolver>;
   '#Project0.0': Promise<ServiceType<typeof definitions0.project>>;
-  '#ReferenceResolverFactory0.0': Promise<di1.ReferenceResolverFactory>;
-  '#ResourceScanner0.0': Promise<di3.ResourceScanner>;
-  '#ServiceAnalyser0.0': Promise<di4.ServiceAnalyser>;
-  '#ServiceCompiler0.0': Promise<di6.ServiceCompiler>;
-  '#ServicesExtension0.0': Promise<di0.ServicesExtension>;
-  '#TypeHelper0.0': Promise<di1.TypeHelper>;
-  '#WriterFactory0.0': Promise<di6.WriterFactory>;
+  '#ReferenceResolverFactory0.0': Promise<utils0.ReferenceResolverFactory>;
+  '#ResourceScanner0.0': Promise<utils0.ResourceScanner>;
+  '#ServiceAnalyser0.0': Promise<analysis0.ServiceAnalyser>;
+  '#ServiceCompiler0.0': Promise<compiler0.ServiceCompiler>;
+  '#ServicesExtension0.0': Promise<extensions0.ServicesExtension>;
+  '#TypeHelper0.0': Promise<utils0.TypeHelper>;
+  '#WriterFactory0.0': Promise<compiler0.WriterFactory>;
 }
 
 export class DiccContainer extends Container<PublicServices, DynamicServices, AnonymousServices> {
@@ -65,13 +64,13 @@ export class DiccContainer extends Container<PublicServices, DynamicServices, An
         async: true,
       },
       '#Argv0.0': {
-        factory: () => new di2.Argv(),
+        factory: () => new argv0.Argv(),
       },
       '#AutowiringFactory0.0': {
         factory: async (di) => {
           const call2Arg0 = await di.get('#ContainerReflector0.0');
           return {
-            create: (serviceAnalyser) => new di4.Autowiring(
+            create: (serviceAnalyser) => new analysis0.Autowiring(
               call2Arg0,
               serviceAnalyser,
             ),
@@ -81,8 +80,8 @@ export class DiccContainer extends Container<PublicServices, DynamicServices, An
       },
       '#BuilderMap0.0': {
         factory: async (di) => {
-          const di5 = await import('../../container/di.js');
-          return new di5.BuilderMap(
+          const container0 = await import('../../container/index.js');
+          return new container0.BuilderMap(
             await di.get('#Project0.0'),
             await di.get('#ContainerBuilderFactory0.0'),
             await di.get('#CompilerConfig0.0'),
@@ -92,7 +91,7 @@ export class DiccContainer extends Container<PublicServices, DynamicServices, An
       },
       '#BuilderReflectionFactory0.0': {
         factory: () => ({
-          create: (container) => new di4.BuilderReflection(
+          create: (container) => new analysis0.BuilderReflection(
             container,
           ),
         }),
@@ -119,7 +118,8 @@ export class DiccContainer extends Container<PublicServices, DynamicServices, An
         scope: 'private',
       },
       '#ContainerAnalyser0.0': {
-        factory: async (di) => new di4.ContainerAnalyser(
+        factory: async (di) => new analysis0.ContainerAnalyser(
+          await di.get('#EventDispatcher0.0'),
           await di.get('#ContainerReflector0.0'),
           await di.get('#ServiceAnalyser0.0'),
         ),
@@ -127,10 +127,10 @@ export class DiccContainer extends Container<PublicServices, DynamicServices, An
       },
       '#ContainerBuilderFactory0.0': {
         factory: async (di) => {
-          const di5 = await import('../../container/di.js');
+          const container0 = await import('../../container/index.js');
           const call1Arg0 = await di.get('#EventDispatcher0.0');
           return {
-            create: (sourceFile, options) => new di5.ContainerBuilder(
+            create: (sourceFile, options) => new container0.ContainerBuilder(
               call1Arg0,
               sourceFile,
               options,
@@ -141,8 +141,8 @@ export class DiccContainer extends Container<PublicServices, DynamicServices, An
       },
       '#ContainerCompiler0.0': {
         factory: async (di) => {
-          const di6 = await import('../../compiler/di.js');
-          return new di6.ContainerCompiler(
+          const compiler0 = await import('../../compiler/index.js');
+          return new compiler0.ContainerCompiler(
             await di.get('#ServiceCompiler0.0'),
             await di.get('#WriterFactory0.0'),
           );
@@ -150,7 +150,7 @@ export class DiccContainer extends Container<PublicServices, DynamicServices, An
         async: true,
       },
       '#ContainerReflector0.0': {
-        factory: async (di) => new di4.ContainerReflector(
+        factory: async (di) => new analysis0.ContainerReflector(
           di.get('#BuilderReflectionFactory0.0'),
           await di.get('#ExternalReflectionFactory0.0'),
           await di.get('#BuilderMap0.0'),
@@ -163,8 +163,8 @@ export class DiccContainer extends Container<PublicServices, DynamicServices, An
           '#CompilerExtension0',
         ],
         factory: async (di) => {
-          const di0 = await import('../../extensions/di.js');
-          return new di0.DecoratorsExtension(
+          const extensions0 = await import('../../extensions/index.js');
+          return new extensions0.DecoratorsExtension(
             await di.get('#TypeHelper0.0'),
           );
         },
@@ -182,8 +182,8 @@ export class DiccContainer extends Container<PublicServices, DynamicServices, An
       },
       '#ExtensionLoader0.0': {
         factory: async (di) => {
-          const di0 = await import('../../extensions/di.js');
-          return new di0.ExtensionLoader(
+          const extensions0 = await import('../../extensions/index.js');
+          return new extensions0.ExtensionLoader(
             await di.get('#EventDispatcher0.0'),
             async () => di.get('#ModuleResolver0.0'),
             async () => di.get('#TypeHelper0.0'),
@@ -198,7 +198,7 @@ export class DiccContainer extends Container<PublicServices, DynamicServices, An
         factory: async (di) => {
           const call0Arg0 = await di.get('#TypeHelper0.0');
           return {
-            create: (container) => new di4.ExternalReflection(
+            create: (container) => new analysis0.ExternalReflection(
               call0Arg0,
               container,
             ),
@@ -213,8 +213,8 @@ export class DiccContainer extends Container<PublicServices, DynamicServices, An
       },
       '#ModuleResolver0.0': {
         factory: async (di) => {
-          const di1 = await import('../../utils/di.js');
-          return new di1.ModuleResolver(
+          const utils0 = await import('../../utils/index.js');
+          return new utils0.ModuleResolver(
             await di.get('#Project0.0'),
           );
         },
@@ -228,8 +228,8 @@ export class DiccContainer extends Container<PublicServices, DynamicServices, An
       },
       '#ReferenceResolverFactory0.0': {
         factory: async (di) => {
-          const di1 = await import('../../utils/di.js');
-          return new di1.ReferenceResolverFactory(
+          const utils0 = await import('../../utils/index.js');
+          return new utils0.ReferenceResolverFactory(
             await di.get('#ModuleResolver0.0'),
           );
         },
@@ -237,8 +237,8 @@ export class DiccContainer extends Container<PublicServices, DynamicServices, An
       },
       '#ResourceScanner0.0': {
         factory: async (di) => {
-          const di3 = await import('../../definitions/di.js');
-          return new di3.ResourceScanner(
+          const utils0 = await import('../../utils/index.js');
+          return new utils0.ResourceScanner(
             await di.get('#Project0.0'),
             await di.get('#EventDispatcher0.0'),
           );
@@ -246,15 +246,15 @@ export class DiccContainer extends Container<PublicServices, DynamicServices, An
         async: true,
       },
       '#ServiceAnalyser0.0': {
-        factory: async (di) => new di4.ServiceAnalyser(
+        factory: async (di) => new analysis0.ServiceAnalyser(
           await di.get('#AutowiringFactory0.0'),
         ),
         async: true,
       },
       '#ServiceCompiler0.0': {
         factory: async (di) => {
-          const di6 = await import('../../compiler/di.js');
-          return new di6.ServiceCompiler(
+          const compiler0 = await import('../../compiler/index.js');
+          return new compiler0.ServiceCompiler(
             await di.get('#WriterFactory0.0'),
           );
         },
@@ -266,8 +266,8 @@ export class DiccContainer extends Container<PublicServices, DynamicServices, An
           '#CompilerExtension0',
         ],
         factory: async (di) => {
-          const di0 = await import('../../extensions/di.js');
-          return new di0.ServicesExtension(
+          const extensions0 = await import('../../extensions/index.js');
+          return new extensions0.ServicesExtension(
             await di.get('#TypeHelper0.0'),
           );
         },
@@ -275,8 +275,8 @@ export class DiccContainer extends Container<PublicServices, DynamicServices, An
       },
       '#TypeHelper0.0': {
         factory: async (di) => {
-          const di1 = await import('../../utils/di.js');
-          return new di1.TypeHelper(
+          const utils0 = await import('../../utils/index.js');
+          return new utils0.TypeHelper(
             await di.get('#ReferenceResolverFactory0.0'),
           );
         },
@@ -284,8 +284,8 @@ export class DiccContainer extends Container<PublicServices, DynamicServices, An
       },
       '#WriterFactory0.0': {
         factory: async (di) => {
-          const di6 = await import('../../compiler/di.js');
-          return new di6.WriterFactory(
+          const compiler0 = await import('../../compiler/index.js');
+          return new compiler0.WriterFactory(
             await di.get('#Project0.0'),
           );
         },

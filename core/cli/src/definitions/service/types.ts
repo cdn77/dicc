@@ -20,6 +20,7 @@ export type LocalServiceDefinitionOptions = {
   node?: Node;
   declaration?: ClassDeclaration | InterfaceDeclaration;
   container?: boolean;
+  autoImplement?: AutoImplementationInfo;
 };
 
 export type ExplicitServiceDefinitionOptions = LocalServiceDefinitionOptions & {

@@ -2,11 +2,11 @@ import { Type } from 'ts-morph';
 import { OverrideDefinition } from './argumentDefinition';
 import { CallableDefinition } from './callableDefinition';
 
-export type ArgumentOverride = CallableDefinition | OverrideDefinition | ForcedArgument;
+export type ArgumentOverride = CallableDefinition | OverrideDefinition | LiteralDefinition;
 
-export class ForcedArgument {
+export class LiteralDefinition {
   constructor(
-    public readonly value: string,
+    public readonly source: string,
   ) {}
 }
 

@@ -1,36 +1,44 @@
-import { SourceFile } from 'ts-morph';
 import { ContainerBuilder } from '../container';
 import { LocalServiceDefinition } from '../definitions';
+import { EventDispatcher } from '../events';
 import { getOrCreate } from '../utils';
+import { AnalyseServices, ContainersAnalysed, ServicesAnalysed } from './events';
 import { ContainerReflector } from './reflection';
-import { Call, Container, Service, TypeSpecifierWithAsync, withAsync } from './results';
+import {
+  Call,
+  Container,
+  Service,
+  TypeSpecifierSet,
+  TypeSpecifierWithAsync,
+  withAsync,
+} from './results';
 import { ServiceAnalyser } from './serviceAnalyser';
 
 export class ContainerAnalyser {
-  private readonly builders: Map<SourceFile, ContainerBuilder> = new Map();
-  private readonly results: Map<ContainerBuilder, Container> = new Map();
-
   constructor(
+    private readonly eventDispatcher: EventDispatcher,
     private readonly reflector: ContainerReflector,
     private readonly serviceAnalyser: ServiceAnalyser,
-  ) {
-  }
+  ) {}
 
-  analyse(builders: Iterable<ContainerBuilder>): Iterable<[ContainerBuilder, Container]> {
+  analyse(builders: Iterable<ContainerBuilder>): Map<ContainerBuilder, Container> {
+    const results: Map<ContainerBuilder, Container> = new Map();
+
     for (const builder of builders) {
-      this.builders.set(builder.sourceFile, builder);
-      this.results.set(builder, createEmptyResult(builder.options.className, builder.options.preamble));
+      results.set(builder, createEmptyResult(builder.options.className, builder.options.preamble));
     }
 
-    this.mergeChildContainers();
-    this.analyseServices();
-    this.analyseContainers();
+    this.mergeChildContainers(results.keys());
+    this.analyseServices(results);
+    this.analyseContainers(results);
 
-    return this.results;
+    this.eventDispatcher.dispatch(new ContainersAnalysed(results));
+
+    return results;
   }
 
-  private mergeChildContainers(): void {
-    for (const container of this.builders.values()) {
+  private mergeChildContainers(containers: Iterable<ContainerBuilder>): void {
+    for (const container of containers) {
       for (const child of container.getChildContainers()) {
         this.mergeChildServices(container, child);
       }
@@ -45,22 +53,30 @@ export class ContainerAnalyser {
     }
   }
 
-  private analyseServices(): void {
-    for (const builder of this.builders.values()) {
+  private analyseServices(results: Map<ContainerBuilder, Container>): void {
+    for (const [builder, container] of results) {
+      this.eventDispatcher.dispatch(new AnalyseServices(container, builder, this.serviceAnalyser));
+    }
+
+    for (const builder of results.keys()) {
       for (const service of builder.getPublicServices()) {
         this.serviceAnalyser.analyseServiceDefinition(service);
       }
     }
 
+    for (const [builder, container] of results) {
+      this.eventDispatcher.dispatch(new ServicesAnalysed(container, builder, this.serviceAnalyser));
+    }
+
     withAsync.stopWarnings();
 
     for (const [builder, service] of this.serviceAnalyser.getAnalysedServices()) {
-      this.results.get(builder)?.services.add(service);
+      results.get(builder)?.services.add(service);
     }
   }
 
-  private analyseContainers(): void {
-    for (const [builder, result] of this.results) {
+  private analyseContainers(results: Map<ContainerBuilder, Container>): void {
+    for (const [builder, result] of results) {
       this.analyseContainer(builder, result);
     }
   }
@@ -111,33 +127,33 @@ export class ContainerAnalyser {
     if (!service.id.startsWith('#')) {
       container.publicTypes.set(service.id, type);
     } else {
-      getOrCreate(map, service.id, () => new Set()).add(type);
+      getOrCreate(map, service.id, () => new TypeSpecifierSet()).add(type);
     }
 
     for (const alias of service.aliases) {
-      getOrCreate(map, alias, () => new Set()).add(type);
+      getOrCreate(map, alias, () => new TypeSpecifierSet()).add(type);
     }
   }
 
-  private analyseServiceResources(container: Container, service: Service): void {
+  private analyseServiceResources(container: Container, service: Service, async?: boolean): void {
     if (service.factory) {
       if (service.factory.kind === 'local' || service.factory.kind === 'auto-class') {
-        this.analyseCallResources(container, service.factory.call, service.async);
+        this.analyseCallResources(container, service.factory.call, async ?? service.async);
       }
 
       if (service.factory.kind === 'auto-class' || service.factory.kind === 'auto-interface') {
         if (service.factory.method.name === 'create' && !service.factory.method.async) {
-          this.analyseServiceResources(container, service.factory.method.service);
+          this.analyseServiceResources(container, service.factory.method.service, async ?? service.async);
         }
       }
     }
 
     if (service.decorate) {
-      this.analyseCallListResources(container, service.decorate.calls, service.async);
+      this.analyseCallListResources(container, service.decorate.calls, async ?? service.async);
     }
 
     if (service.onCreate) {
-      this.analyseCallListResources(container, service.onCreate.calls, service.async);
+      this.analyseCallListResources(container, service.onCreate.calls, async ?? service.async);
     }
 
     if (service.onFork) {

@@ -43,9 +43,9 @@ export class ContainerBuilder {
     path: string,
     type: Type,
     options: LocalServiceDefinitionOptions = {},
-  ): void {
+  ): ImplicitServiceDefinition {
     const id = this.allocateServiceId(options.factory?.returnType?.aliasType ?? type);
-    this.addService(new ImplicitServiceDefinition(this, resource, path, id, type, options));
+    return this.addService(new ImplicitServiceDefinition(this, resource, path, id, type, options));
   }
 
   addExplicitDefinition(
@@ -53,7 +53,7 @@ export class ContainerBuilder {
     path: string,
     type: Type,
     options: ExplicitServiceDefinitionOptions = {},
-  ): void {
+  ): ExplicitServiceDefinition {
     const id = options.anonymous
       ? this.allocateServiceId(options.factory?.returnType?.aliasType ?? type)
       : path;
@@ -63,7 +63,7 @@ export class ContainerBuilder {
       this.addPublicService(definition);
     }
 
-    this.addService(definition);
+    return this.addService(definition);
   }
 
   addForeignDefinition(
@@ -73,7 +73,7 @@ export class ContainerBuilder {
     aliases?: Iterable<Type>,
     definition?: ServiceDefinition,
     async?: boolean,
-  ): void {
+  ): ForeignServiceDefinition {
     const anonymous = !container.isExplicit() || container.anonymous;
 
     const id = anonymous
@@ -86,10 +86,10 @@ export class ContainerBuilder {
       this.addPublicService(def);
     }
 
-    this.addService(def);
+    return this.addService(def);
   }
 
-  private addService(definition: ServiceDefinition): void {
+  private addService<Definition extends ServiceDefinition>(definition: Definition): Definition {
     this.services.set(definition.id, definition);
     getOrCreate(this.types, definition.type, () => new Set()).add(definition);
 
@@ -108,6 +108,7 @@ export class ContainerBuilder {
     }
 
     this.eventDispatcher.dispatch(new ServiceAdded(definition));
+    return definition;
   }
 
   getTypeName(type: Type): string {
@@ -245,8 +246,9 @@ export class ContainerBuilder {
   * getResourceMap(): Iterable<[alias: string, staticImport: string, dynamicImport: string]> {
     for (const [resource, alias] of this.resources) {
       const ext = resource.getFilePath().match(/\.([mc]?)[jt]sx?$/i);
-      const staticImport = this.sourceFile.getRelativePathAsModuleSpecifierTo(resource);
-      const dynamicImport = `${staticImport}.${ext ? ext[1] : ''}js`;
+      const specifier = this.sourceFile.getRelativePathAsModuleSpecifierTo(resource);
+      const staticImport = specifier.replace(/\/index$/, '');
+      const dynamicImport = `${specifier}.${ext ? ext[1] : ''}js`;
       yield [alias, staticImport, dynamicImport];
     }
   }

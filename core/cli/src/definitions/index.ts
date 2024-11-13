@@ -2,8 +2,6 @@ export * from './argumentDefinition';
 export * from './autoImplementedMethod';
 export * from './callableDefinition';
 export * from './decoratorDefinition';
-export * from './events';
 export * from './factoryDefinition';
-export * from './resourceScanner';
 export * from './service';
 export * from './types';

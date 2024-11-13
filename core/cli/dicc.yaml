@@ -1,7 +1,16 @@
 containers:
   src/cli/bootstrap/container.ts:
-    className: DiccContainer
+    #preamble: '/* eslint-disable */'
     #lazyImports: false
+    className: DiccContainer
     resources:
       src/cli/bootstrap/definitions.ts: ~
-      src/*/di.ts: ~
+      src/cli/argv.ts: ~
+      src/*/index.ts:
+        excludePaths:
+          - src/config/
+          - src/definitions/
+          - src/events/
+          - src/errors/
+        excludeExports:
+          - CompilerExtension

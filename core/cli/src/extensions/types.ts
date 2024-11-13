@@ -2,12 +2,13 @@ import { z } from 'zod';
 import { ReferenceMap } from '../utils';
 import { CompilerExtension } from './compilerExtension';
 
-export type CompilerExtensionInjectSpecifier =
-  | 'eventDispatcher'
-  | 'moduleResolver'
-  | 'referenceResolver'
-  | 'typeHelper'
-  | 'logger';
+export enum CompilerExtensionInjectSpecifier {
+  EventDispatcher = 'eventDispatcher',
+  ModuleResolver = 'moduleResolver',
+  ReferenceResolver = 'referenceResolver',
+  TypeHelper = 'typeHelper',
+  Logger = 'logger',
+}
 
 export type CompilerExtensionReferences = {
   module: string;
