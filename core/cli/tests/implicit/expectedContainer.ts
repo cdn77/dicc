@@ -22,6 +22,7 @@ interface AnonymousServices {
   '#TestMultipleDependencies0.0': definitions0.TestMultipleDependencies;
   '#TestNoDependencies0.0': definitions0.TestNoDependencies;
   '#TestSingleDependency0.0': definitions0.TestSingleDependency;
+  '#TestTupleInjection0.0': Promise<ServiceType<typeof definitions0.testTupleInjection>>;
 }
 
 export class TestContainer extends Container<PublicServices, DynamicServices, AnonymousServices> {
@@ -29,13 +30,7 @@ export class TestContainer extends Container<PublicServices, DynamicServices, An
     super({
       'entrypoint': {
         factory: async (di) => new definitions0.entrypoint.factory(
-          di.get('#TestSingleDependency0.0'),
-          di.get('#TestMultipleDependencies0.0'),
-          di.get('#TestListDependency0.0'),
-          di.get('#TestInjectionModes0.0'),
-          await di.get('#TestAsyncFactoryMethod0.0'),
-          await di.get('#TestAsyncFactoryMethod0.0'),
-          await di.get('#TestAsyncDependency0.0'),
+          await di.get('#TestTupleInjection0.0'),
         ),
         async: true,
       },
@@ -87,6 +82,18 @@ export class TestContainer extends Container<PublicServices, DynamicServices, An
         factory: (di) => new definitions0.TestSingleDependency(
           di.get('#TestNoDependencies0.0'),
         ),
+      },
+      '#TestTupleInjection0.0': {
+        factory: async (di) => definitions0.testTupleInjection(
+          di.get('#TestSingleDependency0.0', false),
+          di.get('#TestMultipleDependencies0.0', false),
+          di.get('#TestListDependency0.0', false),
+          di.get('#TestInjectionModes0.0', false),
+          await di.get('#TestAsyncFactoryMethod0.0', false),
+          await di.get('#TestAsyncFactoryMethod0.0', false),
+          await di.get('#TestAsyncDependency0.0', false),
+        ),
+        async: true,
       },
     });
   }

@@ -148,6 +148,16 @@ export class InjectorType {
   }
 }
 
+export class TupleType {
+  readonly values: ValueType[];
+
+  constructor(
+    ...values: ValueType[]
+  ) {
+    this.values = values;
+  }
+}
+
 export class ScopedRunnerType {
   constructor(
     public readonly nullable: boolean = false,
@@ -161,6 +171,7 @@ export type ValueType =
   | IterableType
   | AccessorType
   | InjectorType
+  | TupleType
   | ScopedRunnerType;
 
 export type InjectableType =

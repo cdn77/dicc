@@ -2,7 +2,6 @@ import { ServiceScope } from 'dicc';
 import { ContainerBuilder } from '../container';
 import {
   AccessorType,
-  ArgumentDefinition,
   InjectableType,
   InjectorType,
   IterableType,
@@ -12,6 +11,8 @@ import {
   ReturnType,
   ScopedRunnerType,
   ServiceDefinition,
+  TupleType,
+  ValueType,
 } from '../definitions';
 import { AutowiringError, ContainerContext } from '../errors';
 import { getFirst, mapMap } from '../utils';
@@ -35,18 +36,45 @@ export interface AutowiringFactory {
   create(serviceAnalyser: ServiceAnalyser): Autowiring;
 }
 
+export type ArgumentInjectionOptions = {
+  optional?: boolean;
+  rest?: boolean;
+};
+
 export class Autowiring {
   constructor(
     private readonly reflector: ContainerReflector,
     private readonly serviceAnalyser: ServiceAnalyser,
   ) {}
 
-  resolveArgumentInjection(ctx: ContainerContext, arg: ArgumentDefinition, scope: ServiceScope): Argument | undefined {
-    if (arg.type instanceof ScopedRunnerType) {
+  resolveArgumentInjection(
+    ctx: ContainerContext,
+    type: ValueType,
+    options: ArgumentInjectionOptions,
+    scope: ServiceScope,
+  ): Argument | undefined {
+    if (type instanceof TupleType) {
+      return {
+        kind: 'injected',
+        mode: 'tuple',
+        values: type.values.map((elemType, idx) => {
+          const elem = this.resolveArgumentInjection(ctx, elemType, { optional: true }, scope);
+
+          if (!elem) {
+            throw new AutowiringError(`Unable to autowire tuple element #${idx}`, ctx);
+          }
+
+          return elem;
+        }),
+        spread: options.rest ?? false,
+      };
+    }
+
+    if (type instanceof ScopedRunnerType) {
       return { kind: 'injected', mode: 'scoped-runner' };
     }
 
-    for (const injectable of arg.type.getInjectableTypes()) {
+    for (const injectable of type.getInjectableTypes()) {
       const candidates = ctx.builder.findByType(injectable.serviceType);
 
       if (!candidates.size) {
@@ -65,17 +93,19 @@ export class Autowiring {
         return this.resolveInjector(ctx, getFirst(candidates));
       }
 
-      return this.resolveInjection(ctx, arg, injectable, candidates, scope);
+      return this.resolveInjection(ctx, injectable, options, candidates, scope);
     }
 
-    if (arg.optional) {
+    if (options.optional) {
       return undefined;
-    } else if (arg.type.nullable) {
+    } else if (type.nullable) {
       return { kind: 'literal', source: 'undefined', async: 'none' };
     }
 
+    console.log(type.type.getText());
+
     throw new AutowiringError(
-      arg.type instanceof InjectorType
+      type instanceof InjectorType
         ? 'Unknown service type in injector'
         : 'Unable to autowire non-optional argument',
       ctx,
@@ -98,8 +128,8 @@ export class Autowiring {
 
   private resolveInjection(
     ctx: ContainerContext,
-    arg: ArgumentDefinition,
     injectable: InjectableType,
+    options: ArgumentInjectionOptions,
     candidates: Set<ServiceDefinition>,
     scope: ServiceScope,
   ): InjectedArgument {
@@ -146,11 +176,11 @@ export class Autowiring {
     if (argIsAccessor) {
       return this.accessor(injectable.returnType, alias, () => async.some((cb) => cb()));
     } else if (argIsIterable) {
-      return this.iterable(arg.rest, alias, getAsyncCb(injectable.async));
+      return this.iterable(options.rest ?? false, alias, getAsyncCb(injectable.async));
     } else if ((argIsPromise ? injectable.value : injectable) instanceof ListType) {
-      return this.list(arg.rest, alias, getAsyncCb());
+      return this.list(options.rest ?? false, alias, getAsyncCb());
     } else {
-      return this.single(injectable, arg.optional, alias, getAsyncCb());
+      return this.single(injectable, options.optional ?? false, alias, getAsyncCb());
     }
 
     function getAsyncCb(targetIsAsync: boolean = argIsPromise): () => AsyncMode {

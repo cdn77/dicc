@@ -397,7 +397,7 @@ export class ServiceAnalyser {
         continue;
       }
 
-      const argument = this.autowiring.resolveArgumentInjection({ ...ctx, argument: name }, arg, scope);
+      const argument = this.autowiring.resolveArgumentInjection({ ...ctx, argument: name }, arg.type, arg, scope);
 
       if (!argument) {
         undefs.push({ kind: 'literal', source: 'undefined', async: 'none' });
@@ -410,9 +410,13 @@ export class ServiceAnalyser {
 
     return withAsync(hasAsyncArg, result);
 
-    function hasAsyncArg(): boolean {
-      for (const arg of result) {
-        if (hasAsyncMode(arg) && arg.async === 'await') {
+    function hasAsyncArg(args: Iterable<Argument> = result): boolean {
+      for (const arg of args) {
+        if (
+          hasAsyncMode(arg) && arg.async === 'await'
+          ||
+          arg.kind === 'injected' && arg.mode === 'tuple' && hasAsyncArg(arg.values)
+        ) {
           return true;
         }
       }

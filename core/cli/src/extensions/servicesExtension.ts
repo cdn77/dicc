@@ -1,9 +1,7 @@
 import {
-  ArrowFunction,
   ClassDeclaration,
   Expression,
   FunctionDeclaration,
-  FunctionExpression,
   InterfaceDeclaration,
   Node,
   ObjectLiteralExpression,
@@ -51,10 +49,10 @@ export class ServicesExtension extends CompilerExtension {
       this.scanClassDeclaration(node, ctx);
     } else if (Node.isInterfaceDeclaration(node)) {
       this.scanInterfaceDeclaration(node, ctx);
-    } else if (Node.isFunctionDeclaration(node) || Node.isFunctionExpression(node) || Node.isArrowFunction(node)) {
-      this.scanFunctionDeclaration(node, ctx);
     } else if (Node.isSatisfiesExpression(node)) {
       this.scanSatisfiesExpression(node, ctx);
+    } else if (Node.isFunctionDeclaration(node) || Node.isExpression(node)) {
+      this.scanExpression(node, ctx);
     }
   }
 
@@ -89,15 +87,26 @@ export class ServicesExtension extends CompilerExtension {
     });
   }
 
-  private scanFunctionDeclaration(
-    node: FunctionDeclaration | FunctionExpression | ArrowFunction,
+  private scanExpression(
+    node: FunctionDeclaration | Expression,
     ctx: UserCodeContext,
   ): void {
-    if (node.getTypeParameters().length) {
+    const nodeIsExpression = Node.isExpression(node);
+
+    if (!nodeIsExpression && node.getTypeParameters().length) {
       return;
     }
 
-    const factory = this.typeHelper.resolveFactory(node.getType(), ctx);
+    const factory = this.typeHelper.resolveFactory(node.getType(), ctx, !nodeIsExpression);
+
+    if (!factory) {
+      if (nodeIsExpression) {
+        return;
+      }
+
+      throw new DefinitionError('Unable to resolve factory signature', ctx);
+    }
+
     let rtn = factory.returnType;
 
     if (!rtn) {

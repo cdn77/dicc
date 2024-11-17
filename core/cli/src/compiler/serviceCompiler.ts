@@ -387,6 +387,20 @@ export class ServiceCompiler {
         return `${asyncKw(arg)}() => di.${method(arg.target)}('${arg.alias}'${needKw(arg)})`;
     }
 
+    if (arg.mode === 'tuple') {
+      const values = arg.values.map((value) => this.compileArg(value)).join(',\n');
+
+      if (arg.spread) {
+        return values;
+      }
+
+      const writer = this.writerFactory.create();
+      writer.write('[');
+      writer.indent(() => writer.write(`${values},`));
+      writer.write(']');
+      return writer.toString();
+    }
+
     const need = arg.mode === 'single' ? needKw(arg) : '';
     const asyncMode = arg.mode === 'iterable' ? withIterableMode : withAsyncMode;
     return withSpread(arg, asyncMode(arg, `di.${method(arg.mode)}('${arg.alias}'${need})`));

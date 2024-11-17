@@ -83,7 +83,7 @@ export class TestAsyncDependency {
   ) {}
 }
 
-class Entrypoint {
+class TestTupleInjection {
   constructor(
     readonly testSingle: TestSingleDependency,
     readonly testMultiple: TestMultipleDependencies,
@@ -92,6 +92,20 @@ class Entrypoint {
     readonly testFactoryMethod: TestAsyncFactoryMethod,
     readonly testAsyncFactoryMethod: TestAsyncFactoryMethod,
     readonly testAsyncDependency: TestAsyncDependency,
+  ) {}
+}
+
+function testTupleInjectionFactory<C extends new (...args: any[]) => any>(
+  ctor: C,
+): (...args: ConstructorParameters<C>) => InstanceType<C> {
+  return (...args: ConstructorParameters<C>) => new ctor(...args);
+}
+
+export const testTupleInjection = testTupleInjectionFactory(TestTupleInjection);
+
+class Entrypoint {
+  constructor(
+    readonly testTupleInjection: TestTupleInjection,
   ) {}
 }
 

@@ -23,7 +23,7 @@ import {
   PromiseType,
   ReturnType,
   ScopedRunnerType,
-  SingleType,
+  SingleType, TupleType,
   ValueType,
 } from '../definitions';
 import { DefinitionError, UnsupportedError, UserCodeContext } from '../errors';
@@ -166,10 +166,18 @@ export class TypeHelper {
       .find((node) => Node.isClassDeclaration(node) || Node.isInterfaceDeclaration(node));
   }
 
-  resolveFactory(type: Type, ctx: UserCodeContext): FactoryDefinition {
+  resolveFactory<Need extends boolean | undefined = undefined>(
+    type: Type,
+    ctx: UserCodeContext,
+    need?: Need,
+  ): Need extends false ? FactoryDefinition | undefined : FactoryDefinition {
     const [signature, method] = this.resolveFactorySignature(type, ctx);
 
     if (!signature) {
+      if (need === false) {
+        return undefined as any;
+      }
+
       throw new DefinitionError(`Unable to resolve factory signature`, ctx);
     }
 
@@ -295,7 +303,11 @@ export class TypeHelper {
   resolveValueType(rawType: Type, node: Node): ValueType {
     const [type, nullable] = this.unwrapNullable(rawType);
 
-    if (this.refs.isType(type, 'ScopedRunner')) {
+    if (type.isTuple()) {
+      return new TupleType(
+        ...type.getTupleElements().map((elem) => this.resolveValueType(elem, node)),
+      );
+    } else if (this.refs.isType(type, 'ScopedRunner')) {
       return new ScopedRunnerType(nullable);
     } else if (this.isIterable(type)) {
       return new IterableType(type, this.resolveSingleType(getFirst(type.getTypeArguments())), nullable);

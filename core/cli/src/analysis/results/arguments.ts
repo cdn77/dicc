@@ -76,6 +76,12 @@ export type InjectorInjectedArgument = InjectedArgumentOptions & {
   id: string;
 };
 
+export type TupleInjectedArgument = InjectedArgumentOptions & {
+  mode: 'tuple';
+  values: Argument[];
+  spread: boolean;
+};
+
 export type ScopedRunnerInjectedArgument = InjectedArgumentOptions & {
   mode: 'scoped-runner';
 };
@@ -86,6 +92,7 @@ export type InjectedArgument =
   | IterableInjectedArgument
   | AccessorInjectedArgument
   | InjectorInjectedArgument
+  | TupleInjectedArgument
   | ScopedRunnerInjectedArgument;
 
 export type Argument =
