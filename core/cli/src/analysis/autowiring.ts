@@ -54,7 +54,7 @@ export class Autowiring {
     scope: ServiceScope,
   ): Argument | undefined {
     if (type instanceof TupleType) {
-      return {
+      return options.rest && !type.values.length ? undefined : {
         kind: 'injected',
         mode: 'tuple',
         values: type.values.map((elemType, idx) => {
@@ -101,8 +101,6 @@ export class Autowiring {
     } else if (type.nullable) {
       return { kind: 'literal', source: 'undefined', async: 'none' };
     }
-
-    console.log(type.type.getText());
 
     throw new AutowiringError(
       type instanceof InjectorType

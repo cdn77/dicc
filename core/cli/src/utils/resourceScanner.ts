@@ -1,4 +1,3 @@
-import { resolve } from 'path';
 import {
   ExportedDeclarations,
   Identifier,
@@ -56,11 +55,23 @@ export class ResourceScanner {
     excludeExports?: string[],
     resolveFrom?: string,
   ): void {
-    resolveFrom ??= this.project.getFileSystem().getCurrentDirectory();
-    resources = (Array.isArray(resources) ? resources : [resources]).map((r) => resolve(resolveFrom, r));
+    let originalCwd: string | undefined = undefined;
+
+    if (resolveFrom) {
+      originalCwd = this.project.getFileSystem().getCurrentDirectory();
+      process.chdir(resolveFrom);
+    }
+
+    if (!Array.isArray(resources)) {
+      resources = [resources];
+    }
 
     for (const resource of this.project.addSourceFilesAtPaths(resources)) {
       this.queue.add({ builder, resource, excludeExports })
+    }
+
+    if (originalCwd) {
+      process.chdir(originalCwd);
     }
   }
 
