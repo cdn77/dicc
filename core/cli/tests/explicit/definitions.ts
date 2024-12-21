@@ -73,14 +73,26 @@ class TestArgumentOverrides {
   constructor(
     readonly alias: AnAlias,
     readonly another: AnotherAlias,
+    readonly pi: number,
     readonly runtime: string,
   ) {}
+}
+
+export class AsyncPiProvider {
+  static async create(): Promise<AsyncPiProvider> {
+    return new AsyncPiProvider();
+  }
+
+  readonly value = 3.14;
+
+  private constructor() {}
 }
 
 export const testArgumentOverrides = {
   factory: TestArgumentOverrides,
   args: {
     alias: (service: TestWithImplicitAlias) => service,
+    pi: (provider: AsyncPiProvider) => provider.value,
     runtime: 'some runtime value',
   },
 } satisfies ServiceDefinition<TestArgumentOverrides>;

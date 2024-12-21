@@ -98,6 +98,18 @@ export function find<T>(items: Iterable<T>, cb: (value: T) => boolean): T | unde
   return undefined;
 }
 
+export function hasCommonElements<T>(a: Set<T>, b: Set<T>): boolean {
+  const [smaller, larger] = a.size < b.size ? [a, b] : [b, a];
+
+  for (const value of smaller) {
+    if (larger.has(value)) {
+      return true;
+    }
+  }
+
+  return false;
+}
+
 export function throwIfUndef<T>(value: T | undefined, createError: () => Error): T {
   if (value === undefined) {
     throw createError();

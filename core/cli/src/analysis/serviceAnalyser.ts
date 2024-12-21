@@ -415,6 +415,8 @@ export class ServiceAnalyser {
         if (
           hasAsyncMode(arg) && arg.async === 'await'
           ||
+          arg.kind === 'overridden' && arg.value.kind === 'call' && arg.value.args.async
+          ||
           arg.kind === 'injected' && arg.mode === 'tuple' && hasAsyncArg(arg.values)
         ) {
           return true;

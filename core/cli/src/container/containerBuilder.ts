@@ -185,6 +185,10 @@ export class ContainerBuilder {
     return this.services.values();
   }
 
+  getAllGroupedByType(): Iterable<[Type, Iterable<ServiceDefinition>]> {
+    return this.types;
+  }
+
   getChildContainers(): Iterable<LocalServiceDefinition> {
     return this.childContainers;
   }
@@ -244,11 +248,15 @@ export class ContainerBuilder {
   }
 
   * getResourceMap(): Iterable<[alias: string, staticImport: string, dynamicImport: string]> {
+    const toStatic = this.options.forceExtensions
+      ? (specifier: string, ext: string = '') => specifier.replace(/$/, `.${ext}js`)
+      : (specifier: string) => specifier.replace(/\/index$/, '');
+
     for (const [resource, alias] of this.resources) {
-      const ext = resource.getFilePath().match(/\.([mc]?)[jt]sx?$/i);
+      const [, ext] = resource.getFilePath().match(/\.([mc]?)[jt]sx?$/i) ?? [];
       const specifier = this.sourceFile.getRelativePathAsModuleSpecifierTo(resource);
-      const staticImport = specifier.replace(/\/index$/, '');
-      const dynamicImport = `${specifier}.${ext ? ext[1] : ''}js`;
+      const staticImport = toStatic(specifier, ext);
+      const dynamicImport = `${specifier}.${ext ?? ''}js`;
       yield [alias, staticImport, dynamicImport];
     }
   }

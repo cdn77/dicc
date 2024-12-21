@@ -1,7 +1,8 @@
+import { Type } from 'ts-morph';
 import { ContainerBuilder } from '../container';
-import { LocalServiceDefinition } from '../definitions';
+import { ImplicitServiceDefinition, LocalServiceDefinition } from '../definitions';
 import { EventDispatcher } from '../events';
-import { getOrCreate } from '../utils';
+import { getOrCreate, hasCommonElements } from '../utils';
 import { AnalyseServices, ContainersAnalysed, ServicesAnalysed } from './events';
 import { ContainerReflector } from './reflection';
 import {
@@ -29,6 +30,7 @@ export class ContainerAnalyser {
     }
 
     this.mergeChildContainers(results.keys());
+    this.cleanupContainers(results.keys());
     this.analyseServices(results);
     this.analyseContainers(results);
 
@@ -50,6 +52,35 @@ export class ContainerAnalyser {
 
     for (const svc of reflection.getPublicServices()) {
       parent.addForeignDefinition(child, svc.id, svc.type, svc.aliases, svc.definition, svc.async);
+    }
+  }
+
+  private cleanupContainers(containers: Iterable<ContainerBuilder>): void {
+    for (const container of containers) {
+      this.cleanupImplicitRegistrations(container);
+    }
+  }
+
+  private cleanupImplicitRegistrations(container: ContainerBuilder): void {
+    const implicit: Set<ImplicitServiceDefinition> = new Set();
+    const explicitTypes: Set<Type> = new Set();
+
+    for (const service of container.getAllServices()) {
+      if (service.isImplicit()) {
+        implicit.add(service);
+      } else {
+        explicitTypes.add(service.type);
+
+        for (const alias of service.aliases) {
+          explicitTypes.add(alias);
+        }
+      }
+    }
+
+    for (const service of implicit) {
+      if (explicitTypes.has(service.type) || hasCommonElements(service.aliases, explicitTypes)) {
+        container.removeService(service);
+      }
     }
   }
 

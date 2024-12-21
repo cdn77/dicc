@@ -9,6 +9,7 @@ const containerConfigSchema = z.strictObject({
   preamble: z.string().optional(),
   className: z.string().regex(/^[a-z$_][a-z0-9$_]*$/i, 'Invalid identifier').default('AppContainer'),
   lazyImports: z.boolean().default(true),
+  forceExtensions: z.boolean().default(false),
   resources: z.record(resourceSchema.nullish()),
 });
 
