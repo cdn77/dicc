@@ -9,7 +9,7 @@
     "ioc",
     "inversion of control"
   ],
-  "version": "1.0.0-rc.3",
+  "version": "1.0.0-rc.4",
   "license": "MIT",
   "author": {
     "name": "Dan Kadera",
@@ -46,7 +46,9 @@
     "ts-node": "^10.9.2"
   },
   "peerDependenciesMeta": {
-    "ts-node": { "optional": true }
+    "ts-node": {
+      "optional": true
+    }
   },
   "devDependencies": {
     "@tsconfig/node18": "^18.2.4",

@@ -52,7 +52,8 @@ export class ServiceCompiler {
       writer.conditionalWrite(service.scope !== 'global', `scope: '${service.scope}',\n`);
     }
 
-    writer.write(this.compileHook('onCreate', service.onCreate, resources));
+    const forceAsyncOnCreate = doesOnCreateNeedForcedAsync(service, resources);
+    writer.write(this.compileHook('onCreate', service.onCreate, resources, forceAsyncOnCreate));
     writer.write(this.compileForkHook(service.onFork, resources));
     writer.write(this.compileHook('onDestroy', service.onDestroy, resources));
 
@@ -243,14 +244,14 @@ export class ServiceCompiler {
     return writer.toString();
   }
 
-  private compileHook(name: string, hook: HookInfo | undefined, resources: Map<string, Resource>): string {
+  private compileHook(name: string, hook: HookInfo | undefined, resources: Map<string, Resource>, forceAsync: boolean = false): string {
     if (!hook || !hook.calls.length) {
       return '';
     }
 
     const writer = this.writerFactory.create();
     const args = ['service', 'di'].slice(0, hook.args);
-    writer.write(`${name}: ${asyncKw(hook)}(${args.join(', ')}) => {`);
+    writer.write(`${name}: ${asyncKw(hook, forceAsync)}(${args.join(', ')}) => {`);
     writer.indent(() => {
       const [imports] = this.compileDynamicImports(resources, new Set(), ...hook.calls);
       writer.write(imports);
@@ -537,8 +538,8 @@ function withSpread<O extends { spread: boolean }>(o: O, value: string): string 
   return o.spread ? `...${value}` : value;
 }
 
-function asyncKw<Value extends { async: boolean }>(value: Value): string {
-  return value.async ? 'async ' : '';
+function asyncKw<Value extends { async: boolean }>(value: Value, force: boolean = false): string {
+  return value.async || force ? 'async ' : '';
 }
 
 function awaitKw<Value extends { async: boolean }>(value: Value): string {
@@ -613,4 +614,26 @@ function resolveFactorySignature(service: Service): [async: boolean, inject: boo
 
   const [afAsync, afInject] = resolveFactorySignature(service.factory.method.service);
   return [async || afAsync, inject || afInject];
+}
+
+/**
+ * This handles an edge case where an onCreate hook doesn't
+ * need to be async for any other reason than a dynamic import,
+ * because dynamic imports are analysed *after* we determine which
+ * calls can be async, so the hook's own `async` property doesn't
+ * reflect whether it will actually end up using dynamic imports
+ * (because when the factory is async, the entire service is async)
+ */
+function doesOnCreateNeedForcedAsync(service: Service, resources: Map<string, Resource>): boolean {
+  if (!service.async || !service.onCreate || service.onCreate.async) {
+    return false;
+  }
+
+  for (const call of service.onCreate.calls) {
+    if (!resources.get(call.resource)?.needsValue) {
+      return true;
+    }
+  }
+
+  return false;
 }
