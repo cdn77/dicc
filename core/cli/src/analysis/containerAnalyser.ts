@@ -1,6 +1,10 @@
 import { Type } from 'ts-morph';
 import { ContainerBuilder } from '../container';
-import { ImplicitServiceDefinition, LocalServiceDefinition } from '../definitions';
+import {
+  ImplicitServiceDefinition,
+  LocalServiceDefinition,
+  ServiceDefinition,
+} from '../definitions';
 import { EventDispatcher } from '../events';
 import { getOrCreate, hasCommonElements } from '../utils';
 import { AnalyseServices, ContainersAnalysed, ServicesAnalysed } from './events';
@@ -64,23 +68,39 @@ export class ContainerAnalyser {
   private cleanupImplicitRegistrations(container: ContainerBuilder): void {
     const implicit: Set<ImplicitServiceDefinition> = new Set();
     const explicitTypes: Set<Type> = new Set();
+    const concreteImplementations: Set<Type> = new Set();
 
     for (const service of container.getAllServices()) {
+      if (!service.isLocal() || service.factory) {
+        addServiceTypes(concreteImplementations, service);
+      }
+
       if (service.isImplicit()) {
         implicit.add(service);
       } else {
-        explicitTypes.add(service.type);
-
-        for (const alias of service.aliases) {
-          explicitTypes.add(alias);
-        }
+        addServiceTypes(explicitTypes, service);
       }
     }
 
     for (const service of implicit) {
-      if (explicitTypes.has(service.type) || hasCommonElements(service.aliases, explicitTypes)) {
+      if (
+        hasService(explicitTypes, service)
+        || !service.factory && hasService(concreteImplementations, service)
+      ) {
         container.removeService(service);
       }
+    }
+
+    function addServiceTypes(set: Set<Type>, service: ServiceDefinition): void {
+      set.add(service.type);
+
+      for (const alias of service.aliases) {
+        set.add(alias);
+      }
+    }
+
+    function hasService(set: Set<Type>, service: ServiceDefinition): boolean {
+      return set.has(service.type) || hasCommonElements(service.aliases, set);
     }
   }
 
