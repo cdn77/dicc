@@ -232,7 +232,7 @@ export class ServiceCompiler {
         writer.write(`: ${formatType(service.type)}['create']`);
       }
 
-      writer.write(`${assign} (${method.args.join(', ')}) => `);
+      writer.write(`${assign} ${asyncKw(method)}(${method.args.join(', ')}) => `);
       writer.write(
         method.service.factory
           ? this.compileFactoryBody(method.service, method.service.factory, resources, scope)
