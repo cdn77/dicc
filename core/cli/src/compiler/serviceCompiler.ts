@@ -612,8 +612,8 @@ function resolveFactorySignature(service: Service): [async: boolean, inject: boo
     return [true, true];
   }
 
-  const [afAsync, afInject] = resolveFactorySignature(service.factory.method.service);
-  return [async || afAsync, inject || afInject];
+  const [, afInject] = resolveFactorySignature(service.factory.method.service);
+  return [async, inject || afInject];
 }
 
 /**
