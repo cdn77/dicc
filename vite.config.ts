@@ -15,7 +15,7 @@ const config = defineConfig({
 				],
 				sidebar,
 				github: 'https://github.com/cdn77/dicc',
-				logo: process.argv.includes('dev') ? '/dicc.svg' : '//cdn77.github.io/dicc/dicc.svg',
+				logo: '/logo.svg',
 				themeColor: {
 					light: '#fff',
 					dark: '#000',

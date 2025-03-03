@@ -1,6 +1,6 @@
 ---
 title: Welcome to DICC
-heroImage: /dicc.svg
+heroImage: /logo.svg
 tagline: Compile-time Dependency Injection for TypeScript
 actions:
   - label: Get started
