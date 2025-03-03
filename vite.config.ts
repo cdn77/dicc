@@ -10,12 +10,12 @@ const config = defineConfig({
 				navbar: [
 					{
 						title: 'Docs',
-						to: '/getting-started',
+						to: '/getting-started/',
 					},
 				],
 				sidebar,
 				github: 'https://github.com/cdn77/dicc',
-				logo: '/dicc.svg',
+				logo: process.argv.includes('dev') ? '/dicc.svg' : '//cdn77.github.io/dicc/dicc.svg',
 				themeColor: {
 					light: '#fff',
 					dark: '#000',

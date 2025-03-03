@@ -12,7 +12,7 @@ const config = {
 			pages: 'dist',
 		}),
 		paths: {
-			base: process.env.NODE_ENV === 'production' ? '/dicc' : ''
+			base: process.argv.includes('dev') ? '' : '/dicc',
 		},
 	},
 	compilerOptions: {
