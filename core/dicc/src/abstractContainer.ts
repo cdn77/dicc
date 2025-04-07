@@ -109,7 +109,7 @@ export abstract class AbstractContainer<Services extends Record<string, any> = {
     } finally {
       for (const [id, service] of store) {
         const definition = this.definitions.get(id);
-        definition?.onDestroy && await definition.onDestroy(service, this);
+        definition?.onDestroy && await definition.onDestroy(await service, this);
         store.delete(id);
       }
     }

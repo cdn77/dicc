@@ -85,7 +85,7 @@ export class ServiceCompiler {
       return 'undefined';
     }
 
-    const [async, inject] = resolveFactorySignature(service);
+    const [async, inject] = resolveFactorySignature(service, resources);
     const body = this.compileFactoryBody(service, service.factory, resources, scope);
     return `${async ? 'async ' : ''}(${inject ? 'di' : ''}) => ${body}`;
   }
@@ -558,7 +558,10 @@ function method(mode: 'single' | 'list' | 'iterable'): string {
   }
 }
 
-function resolveFactorySignature(service: Service): [async: boolean, inject: boolean] {
+function resolveFactorySignature(
+  service: Service,
+  resources: Map<string, Resource>,
+): [async: boolean, inject: boolean] {
   let async = false;
   let inject = false;
 
@@ -586,24 +589,26 @@ function resolveFactorySignature(service: Service): [async: boolean, inject: boo
     return [false, false];
   }
 
-  switch (service.factory.kind) {
-    case 'foreign':
-      return [async || service.factory.async, true];
-    case 'local':
-      return [async || service.factory.call.async || service.factory.call.args.async, inject || service.factory.call.args.inject];
-    case 'auto-class':
-      if (service.factory.call.args.async) {
-        async = true;
-      }
+  if (service.factory.kind === 'foreign') {
+    return [async || service.factory.async, true];
+  }
 
-      if (service.factory.call.args.inject) {
-        inject = true;
-      }
+  if (service.factory.kind !== 'auto-interface') {
+    if (service.factory.call.async || service.factory.call.args.async) {
+      async = true;
+    }
 
-      if (async && inject) {
-        return [async, inject];
-      }
-      break;
+    if (service.onCreate?.async && !resources.get(service.factory.call.resource)?.needsValue) {
+      async = true;
+    }
+
+    if (service.factory.call.args.inject) {
+      inject = true;
+    }
+  }
+
+  if (async && inject || service.factory.kind === 'local') {
+    return [async, inject];
   }
 
   if (service.factory.method.name === 'get') {
@@ -612,7 +617,7 @@ function resolveFactorySignature(service: Service): [async: boolean, inject: boo
     return [true, true];
   }
 
-  const [, afInject] = resolveFactorySignature(service.factory.method.service);
+  const [, afInject] = resolveFactorySignature(service.factory.method.service, resources);
   return [async, inject || afInject];
 }
 
