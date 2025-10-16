@@ -3,6 +3,10 @@ name: ci
 on:
   - push
 
+permissions:
+  id-token: write
+  contents: read
+
 jobs:
   ci:
     name: ci
@@ -11,7 +15,9 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '22'
+      - name: Update NPM
+        run: npm i -g npm @latest
       - name: Checkout repository
         uses: actions/checkout@v4
       - name: Install dependencies
@@ -22,8 +28,4 @@ jobs:
         run: make tests
       - name: Publish packages
         if: github.ref_name == 'main'
-        run: |
-          echo '//registry.npmjs.org/:_authToken=${NPM_AUTH_TOKEN}' > .npmrc
-          make publish
-        env:
-          NPM_AUTH_TOKEN: ${{ secrets.DICC_NPM_PUBLISH }}
+        run: make publish
