@@ -37,7 +37,7 @@ export class ResolversExtension extends CompilerExtension {
     super();
   }
 
-  * getSubscribedEvents(): Iterable<EventSubscription<any>> {
+  *getSubscribedEvents(): Iterable<EventSubscription<any>> {
     yield AnalyseServices.sub((evt) => this.process(evt.builder));
   }
 
@@ -72,9 +72,7 @@ export class ResolversExtension extends CompilerExtension {
         resource,
         path: 'ResolverFactory',
       }),
-      args: new Map([
-        ['operationName', new LiteralDefinition(JSON.stringify(operation))],
-      ]),
+      args: new Map([['operationName', new LiteralDefinition(JSON.stringify(operation))]]),
       node: declaration,
       declaration,
       autoImplement: {

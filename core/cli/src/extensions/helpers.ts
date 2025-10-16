@@ -14,7 +14,10 @@ export function getPropertyLiteralValueIfKind<Type extends keyof LiteralTypeToVa
   property: string,
   type: Type,
 ): LiteralTypeToValueType[Type] | undefined;
-export function getPropertyLiteralValueIfKind<Type extends keyof LiteralTypeToValueType, ReturnType>(
+export function getPropertyLiteralValueIfKind<
+  Type extends keyof LiteralTypeToValueType,
+  ReturnType,
+>(
   node: ObjectLiteralExpression,
   property: string,
   type: Type,
@@ -28,22 +31,25 @@ export function getPropertyLiteralValueIfKind<Type extends keyof LiteralTypeToVa
   ctx?: UserCodeContext,
   validate?: (value: any, ctx: UserCodeContext) => any,
 ): any {
-  const value = node.getProperty(property)
-    ?.asKind(SyntaxKind.PropertyAssignment)
-    ?.getInitializer();
+  const value = node.getProperty(property)?.asKind(SyntaxKind.PropertyAssignment)?.getInitializer();
 
   if (!value) {
     return undefined;
   }
 
   switch (type) {
-    case 'string': return check(value.asKind(SyntaxKind.StringLiteral)?.getLiteralValue());
-    case 'number': return check(value.asKind(SyntaxKind.NumericLiteral)?.getLiteralValue());
-    case 'boolean': return Node.isTrueLiteral(value) || Node.isFalseLiteral(value)
-      ? check(value.getLiteralValue())
-      : undefined;
-    case 'object': return check(value.asKind(SyntaxKind.ObjectLiteralExpression));
-    default: throw 'unreachable';
+    case 'string':
+      return check(value.asKind(SyntaxKind.StringLiteral)?.getLiteralValue());
+    case 'number':
+      return check(value.asKind(SyntaxKind.NumericLiteral)?.getLiteralValue());
+    case 'boolean':
+      return Node.isTrueLiteral(value) || Node.isFalseLiteral(value)
+        ? check(value.getLiteralValue())
+        : undefined;
+    case 'object':
+      return check(value.asKind(SyntaxKind.ObjectLiteralExpression));
+    default:
+      throw 'unreachable';
   }
 
   function check(value: any): any {

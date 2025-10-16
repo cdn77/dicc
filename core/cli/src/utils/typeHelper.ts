@@ -23,7 +23,8 @@ import {
   PromiseType,
   ReturnType,
   ScopedRunnerType,
-  SingleType, TupleType,
+  SingleType,
+  TupleType,
   ValueType,
 } from '../definitions';
 import { DefinitionError, UnsupportedError, UserCodeContext } from '../errors';
@@ -110,18 +111,26 @@ export class TypeHelper {
         const impl = ifc.getExpression();
 
         if (Node.isIdentifier(impl)) {
-          types.push(...impl.getDefinitionNodes().flatMap((node) =>
-            Node.isClassDeclaration(node)
-              ? this.resolveClassTypes(node)
-              : Node.isInterfaceDeclaration(node)
-                ? this.resolveInterfaceTypes(node)
-                : []
-          ));
+          types.push(
+            ...impl
+              .getDefinitionNodes()
+              .flatMap((node) =>
+                Node.isClassDeclaration(node)
+                  ? this.resolveClassTypes(node)
+                  : Node.isInterfaceDeclaration(node)
+                    ? this.resolveInterfaceTypes(node)
+                    : [],
+              ),
+          );
         }
       }
 
       const parent: ClassDeclaration | undefined = cursor.getBaseClass();
-      parent && types.push(parent.getType());
+
+      if (parent) {
+        types.push(parent.getType());
+      }
+
       cursor = parent;
     }
 
@@ -133,7 +142,7 @@ export class TypeHelper {
     const queue: (ClassDeclaration | InterfaceDeclaration | TypeAliasDeclaration)[] = [declaration];
     let cursor: ClassDeclaration | InterfaceDeclaration | TypeAliasDeclaration | undefined;
 
-    while (cursor = queue.shift()) {
+    while ((cursor = queue.shift())) {
       if (Node.isClassDeclaration(cursor)) {
         types.push(...this.resolveClassTypes(cursor));
       } else if (Node.isInterfaceDeclaration(cursor)) {
@@ -197,7 +206,10 @@ export class TypeHelper {
     );
   }
 
-  private resolveFactorySignature(type: Type, ctx: UserCodeContext): [signature?: Signature, method?: string] {
+  private resolveFactorySignature(
+    type: Type,
+    ctx: UserCodeContext,
+  ): [signature?: Signature, method?: string] {
     const constructSignature = type.isClass() && this.resolveConstructSignature(type, ctx);
 
     if (constructSignature) {
@@ -210,9 +222,7 @@ export class TypeHelper {
       return [callSignature];
     }
 
-    const create = ctx.node
-      ?.asKind(SyntaxKind.ClassDeclaration)
-      ?.getStaticMethod('create');
+    const create = ctx.node?.asKind(SyntaxKind.ClassDeclaration)?.getStaticMethod('create');
 
     if (!create) {
       return [];
@@ -243,7 +253,10 @@ export class TypeHelper {
     ctx: UserCodeContext,
   ): CallableDefinition | undefined {
     const node = object.getProperty(property);
-    return node && this.resolveCallable(node.getType(), { ...ctx, path: `${ctx.path}.${property}`, node });
+    return (
+      node &&
+      this.resolveCallable(node.getType(), { ...ctx, path: `${ctx.path}.${property}`, node })
+    );
   }
 
   resolveCallSignature(type: Type, ctx: UserCodeContext): Signature | undefined {
@@ -259,9 +272,11 @@ export class TypeHelper {
       try {
         const declaration = signature.getDeclaration().asKindOrThrow(SyntaxKind.Constructor);
 
-        return !declaration.hasModifier(SyntaxKind.PrivateKeyword)
-          && !declaration.hasModifier(SyntaxKind.ProtectedKeyword);
-      } catch (e: any) {
+        return (
+          !declaration.hasModifier(SyntaxKind.PrivateKeyword) &&
+          !declaration.hasModifier(SyntaxKind.ProtectedKeyword)
+        );
+      } catch {
         // This would happen if a class has no explicit constructor -
         // in that case we'd get a construct signature, but no declaration.
         return true;
@@ -271,11 +286,17 @@ export class TypeHelper {
     return this.resolveFirstSignature(ctors ?? [], ctx);
   }
 
-  private resolveFirstSignature(signatures: Signature[], ctx: UserCodeContext): Signature | undefined {
+  private resolveFirstSignature(
+    signatures: Signature[],
+    ctx: UserCodeContext,
+  ): Signature | undefined {
     switch (signatures.length) {
-      case 0: return undefined;
-      case 1: return signatures[0];
-      default: throw new UnsupportedError('Overload signatures are not supported', ctx);
+      case 0:
+        return undefined;
+      case 1:
+        return signatures[0];
+      default:
+        throw new UnsupportedError('Overload signatures are not supported', ctx);
     }
   }
 
@@ -288,13 +309,16 @@ export class TypeHelper {
       const type = arg.getTypeAtLocation(node);
       const declaration = node.asKind(SyntaxKind.Parameter);
 
-      args.set(arg.getName(), new ArgumentDefinition(
-        type,
-        this.resolveValueType(type, node),
-        declaration?.isOptional() ?? false,
-        declaration?.isRestParameter() ?? false,
-        node,
-      ));
+      args.set(
+        arg.getName(),
+        new ArgumentDefinition(
+          type,
+          this.resolveValueType(type, node),
+          declaration?.isOptional() ?? false,
+          declaration?.isRestParameter() ?? false,
+          node,
+        ),
+      );
     }
 
     return args;
@@ -310,15 +334,26 @@ export class TypeHelper {
     } else if (this.refs.isType(type, 'ScopedRunner')) {
       return new ScopedRunnerType(nullable);
     } else if (this.isIterable(type)) {
-      return new IterableType(type, this.resolveSingleType(getFirst(type.getTypeArguments())), nullable);
+      return new IterableType(
+        type,
+        this.resolveSingleType(getFirst(type.getTypeArguments())),
+        nullable,
+      );
     } else if (this.isAsyncIterable(rawType)) {
-      return new IterableType(type, this.resolveSingleType(getFirst(type.getTypeArguments())), nullable, true);
+      return new IterableType(
+        type,
+        this.resolveSingleType(getFirst(type.getTypeArguments())),
+        nullable,
+        true,
+      );
     } else if (this.isPromise(type)) {
       return this.resolvePromiseType(type, nullable);
     } else {
-      return this.resolveListType(type, nullable)
-        ?? this.resolveCallableType(type, nullable, node)
-        ?? this.resolveSingleType(type, nullable);
+      return (
+        this.resolveListType(type, nullable) ??
+        this.resolveCallableType(type, nullable, node) ??
+        this.resolveSingleType(type, nullable)
+      );
     }
   }
 
@@ -383,12 +418,23 @@ export class TypeHelper {
       return [raw, undefined];
     }
 
-    let [type, nullable] = this.unwrapNullable(raw);
+    const [type, nullable] = this.unwrapNullable(raw);
 
     if (this.isIterable(type)) {
-      return [raw, new IterableType(type, this.resolveSingleType(getFirst(type.getTypeArguments())), nullable)];
+      return [
+        raw,
+        new IterableType(type, this.resolveSingleType(getFirst(type.getTypeArguments())), nullable),
+      ];
     } else if (this.isAsyncIterable(type)) {
-      return [raw, new IterableType(type, this.resolveSingleType(getFirst(type.getTypeArguments())), nullable, true)];
+      return [
+        raw,
+        new IterableType(
+          type,
+          this.resolveSingleType(getFirst(type.getTypeArguments())),
+          nullable,
+          true,
+        ),
+      ];
     } else if (this.isPromise(type)) {
       return [raw, this.resolvePromiseType(type, nullable)];
     }
@@ -425,7 +471,15 @@ export class TypeHelper {
       return undefined;
     }
 
-    return new AutoImplementedMethod(ctx.resource, ctx.path, name, args, rawReturnType, returnType, method);
+    return new AutoImplementedMethod(
+      ctx.resource,
+      ctx.path,
+      name,
+      args,
+      rawReturnType,
+      returnType,
+      method,
+    );
   }
 
   private resolveFactoryMethodCandidates(
@@ -440,7 +494,7 @@ export class TypeHelper {
     }
   }
 
-  * resolveExternalContainerServices(
+  *resolveExternalContainerServices(
     container: Type,
     map: 'public' | 'dynamic',
   ): Iterable<[id: string, type: Type, aliases: Iterable<Type>, async: boolean]> {
@@ -455,11 +509,11 @@ export class TypeHelper {
     const type = prop?.getTypeAtLocation(declaration).getNonNullableType();
 
     if (type) {
-      yield * this.resolveExternalContainerServiceMap(type, declaration);
+      yield* this.resolveExternalContainerServiceMap(type, declaration);
     }
   }
 
-  private * resolveExternalContainerServiceMap(
+  private *resolveExternalContainerServiceMap(
     map: Type,
     declaration: Node,
   ): Iterable<[id: string, type: Type, aliases: Iterable<Type>, async: boolean]> {
@@ -487,10 +541,13 @@ export class TypeHelper {
 }
 
 function findSymbolProp(symbol: Type) {
-  return (prop: Symbol) => symbol === prop.getValueDeclaration()
-    ?.asKind(SyntaxKind.PropertyDeclaration)
-    ?.getNameNode()
-    ?.asKind(SyntaxKind.ComputedPropertyName)
-    ?.getExpression()
-    .getType();
+  return (prop: Symbol) =>
+    symbol ===
+    prop
+      .getValueDeclaration()
+      ?.asKind(SyntaxKind.PropertyDeclaration)
+      ?.getNameNode()
+      ?.asKind(SyntaxKind.ComputedPropertyName)
+      ?.getExpression()
+      .getType();
 }

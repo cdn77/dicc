@@ -1,6 +1,8 @@
 import {
   ForeignTypeSpecifier,
-  LocalTypeSpecifier, Resource, Service,
+  LocalTypeSpecifier,
+  Resource,
+  Service,
   TypeSpecifier,
 } from '../analysis';
 import { MapEntry } from '../utils';
@@ -28,15 +30,18 @@ export function compareKeys<V>(a: MapEntry<string, V>, b: MapEntry<string, V>): 
 function pathcmp(a: string, b: string): number {
   const upa = a.match(/^(?:\.\/)?((?:\.\.\/)*)(.+)$/)!;
   const upb = b.match(/^(?:\.\/)?((?:\.\.\/)*)(.+)$/)!;
-  return (upb[1].length - upa[1].length) || strcmp(upa[2], upb[2]);
+  return upb[1].length - upa[1].length || strcmp(upa[2], upb[2]);
 }
 
-export function compareResources(a: MapEntry<string, Resource>, b: MapEntry<string, Resource>): number {
+export function compareResources(
+  a: MapEntry<string, Resource>,
+  b: MapEntry<string, Resource>,
+): number {
   return pathcmp(a.v.staticImport, b.v.staticImport) || strcmp(a.k, b.k);
 }
 
 export function compareServiceIds(a: Service, b: Service): number {
-  return (a.id.indexOf('#') - b.id.indexOf('#')) || strcmp(a.id, b.id);
+  return a.id.indexOf('#') - b.id.indexOf('#') || strcmp(a.id, b.id);
 }
 
 export function compareTypes(a: TypeSpecifier, b: TypeSpecifier): number {

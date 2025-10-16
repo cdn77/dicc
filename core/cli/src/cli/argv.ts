@@ -10,11 +10,11 @@ export class Argv {
       strict: true,
       allowPositionals: false,
       options: {
-        'config': {
+        config: {
           short: 'c',
           type: 'string',
         },
-        'verbose': {
+        verbose: {
           short: 'v',
           type: 'boolean',
           default: [],

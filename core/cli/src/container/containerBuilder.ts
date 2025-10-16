@@ -76,11 +76,18 @@ export class ContainerBuilder {
   ): ForeignServiceDefinition {
     const anonymous = !container.isExplicit() || container.anonymous;
 
-    const id = anonymous
-      ? this.allocateServiceId(type)
-      : `${container.id}.${foreignId}`;
+    const id = anonymous ? this.allocateServiceId(type) : `${container.id}.${foreignId}`;
 
-    const def = new ForeignServiceDefinition(this, container, foreignId, id, type, aliases, definition, async);
+    const def = new ForeignServiceDefinition(
+      this,
+      container,
+      foreignId,
+      id,
+      type,
+      aliases,
+      definition,
+      async,
+    );
 
     if (!anonymous) {
       this.addPublicService(def);
@@ -137,14 +144,16 @@ export class ContainerBuilder {
         : `service '${definition.id}' exported from '${definition.resource.getFilePath()}'`;
       const collision = existing.isForeign()
         ? `merged foreign service '${existing.foreignId}' from container '${existing.parent.id}'`
-        : `definition exported from '${existing.resource.getFilePath()}'`
+        : `definition exported from '${existing.resource.getFilePath()}'`;
 
       const local = existing.isForeign() ? existing.parent : existing;
 
-      throw new DefinitionError(
-        `Public service ID of ${source} collides with ${collision}`,
-        { builder: local.builder, resource: local.resource, path: local.path, node: local.node },
-      );
+      throw new DefinitionError(`Public service ID of ${source} collides with ${collision}`, {
+        builder: local.builder,
+        resource: local.resource,
+        path: local.path,
+        node: local.node,
+      });
     }
 
     this.publicServices.add(definition);
@@ -162,7 +171,11 @@ export class ContainerBuilder {
     }
 
     this.publicServices.delete(definition);
-    definition.isLocal() && this.dynamicServices.delete(definition);
+
+    if (definition.isLocal()) {
+      this.dynamicServices.delete(definition);
+    }
+
     this.eventDispatcher.dispatch(new ServiceRemoved(definition));
   }
 
@@ -202,7 +215,7 @@ export class ContainerBuilder {
   }
 
   findByAnyType(...types: Type[]): Set<ServiceDefinition> {
-    return new Set(types.flatMap((type) => [...this.types.get(type) ?? []]));
+    return new Set(types.flatMap((type) => [...(this.types.get(type) ?? [])]));
   }
 
   addDecorator(
@@ -230,7 +243,7 @@ export class ContainerBuilder {
     const decorators: DecoratorDefinition[] = [];
 
     for (const target of [service.type, ...service.aliases]) {
-      decorators.push(...this.decorators.get(target) ?? []);
+      decorators.push(...(this.decorators.get(target) ?? []));
     }
 
     return decorators.sort((a, b) => b.priority - a.priority);
@@ -238,8 +251,9 @@ export class ContainerBuilder {
 
   getResourceAlias(resource: SourceFile): string {
     return getOrCreate(this.resources, resource, () => {
-      const alias = resource.getFilePath()
-        .replace(/^(?:.*?\/)?([^\/]+)(?:\/index)?(?:\.d)?\.tsx?$/i, '$1')
+      const alias = resource
+        .getFilePath()
+        .replace(/^(?:.*?\/)?([^/]+)(?:\/index)?(?:\.d)?\.tsx?$/i, '$1')
         .replace(/^[^a-z]+|[^a-z0-9]+/gi, '')
         .replace(/^$/, 'anon');
 
@@ -247,7 +261,7 @@ export class ContainerBuilder {
     });
   }
 
-  * getResourceMap(): Iterable<[alias: string, staticImport: string, dynamicImport: string]> {
+  *getResourceMap(): Iterable<[alias: string, staticImport: string, dynamicImport: string]> {
     const toStatic = this.options.forceExtensions
       ? (specifier: string, ext: string = '') => specifier.replace(/$/, `.${ext}js`)
       : (specifier: string) => specifier.replace(/\/index$/, '');

@@ -36,10 +36,6 @@ export type ForeignFactoryInfo = {
   async: boolean;
 };
 
-export type LocalServiceDefinition =
-  | ImplicitServiceDefinition
-  | ExplicitServiceDefinition;
+export type LocalServiceDefinition = ImplicitServiceDefinition | ExplicitServiceDefinition;
 
-export type ServiceDefinition =
-  | LocalServiceDefinition
-  | ForeignServiceDefinition;
+export type ServiceDefinition = LocalServiceDefinition | ForeignServiceDefinition;

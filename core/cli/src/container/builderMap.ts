@@ -1,15 +1,11 @@
-import { Project, SourceFile, ScriptKind } from 'ts-morph';
+import { Project, ScriptKind, SourceFile } from 'ts-morph';
 import { CompilerConfig } from '../config';
 import { ContainerBuilder, ContainerBuilderFactory } from './containerBuilder';
 
 export class BuilderMap implements Iterable<ContainerBuilder> {
   private readonly builders: Map<SourceFile, ContainerBuilder> = new Map();
 
-  constructor(
-    project: Project,
-    builderFactory: ContainerBuilderFactory,
-    config: CompilerConfig,
-  ) {
+  constructor(project: Project, builderFactory: ContainerBuilderFactory, config: CompilerConfig) {
     for (const [path, options] of Object.entries(config.containers)) {
       const resource = project.createSourceFile(path, createEmptyContent(options.className), {
         scriptKind: ScriptKind.TS,

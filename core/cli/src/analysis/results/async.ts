@@ -15,7 +15,7 @@ export function withAsync<A extends AsyncMode | boolean, T>(
         console.trace('Warning: async getter called prematurely!');
       }
 
-      return async ??= cb();
+      return (async ??= cb());
     },
   };
 }

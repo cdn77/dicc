@@ -54,20 +54,22 @@ export class Autowiring {
     scope: ServiceScope,
   ): Argument | undefined {
     if (type instanceof TupleType) {
-      return options.rest && !type.values.length ? undefined : {
-        kind: 'injected',
-        mode: 'tuple',
-        values: type.values.map((elemType, idx) => {
-          const elem = this.resolveArgumentInjection(ctx, elemType, { optional: true }, scope);
+      return options.rest && !type.values.length
+        ? undefined
+        : {
+            kind: 'injected',
+            mode: 'tuple',
+            values: type.values.map((elemType, idx) => {
+              const elem = this.resolveArgumentInjection(ctx, elemType, { optional: true }, scope);
 
-          if (!elem) {
-            throw new AutowiringError(`Unable to autowire tuple element #${idx}`, ctx);
-          }
+              if (!elem) {
+                throw new AutowiringError(`Unable to autowire tuple element #${idx}`, ctx);
+              }
 
-          return elem;
-        }),
-        spread: options.rest ?? false,
-      };
+              return elem;
+            }),
+            spread: options.rest ?? false,
+          };
     }
 
     if (type instanceof ScopedRunnerType) {
@@ -110,14 +112,26 @@ export class Autowiring {
     );
   }
 
-  private resolveInjector(ctx: ContainerContext, candidate: ServiceDefinition): InjectorInjectedArgument {
+  private resolveInjector(
+    ctx: ContainerContext,
+    candidate: ServiceDefinition,
+  ): InjectorInjectedArgument {
     if (candidate.isForeign()) {
       // or can we?
-      throw new AutowiringError('Cannot inject injector for a service from a foreign container', ctx);
+      throw new AutowiringError(
+        'Cannot inject injector for a service from a foreign container',
+        ctx,
+      );
     } else if (candidate.scope === 'private') {
-      throw new AutowiringError(`Cannot inject injector for privately-scoped service '${candidate.path}'`, ctx);
+      throw new AutowiringError(
+        `Cannot inject injector for privately-scoped service '${candidate.path}'`,
+        ctx,
+      );
     } else if (candidate.factory) {
-      throw new AutowiringError(`Cannot inject injector for non-dynamic service '${candidate.path}'`, ctx);
+      throw new AutowiringError(
+        `Cannot inject injector for non-dynamic service '${candidate.path}'`,
+        ctx,
+      );
     }
 
     this.serviceAnalyser.analyseServiceDefinition(candidate, true);
@@ -135,14 +149,16 @@ export class Autowiring {
     const argIsAccessor = injectable instanceof AccessorType;
     const accessorIsAsync = argIsAccessor && injectable.returnType instanceof PromiseType;
     const argIsIterable = injectable instanceof IterableType;
-    const alias = candidates.size > 1
-      ? ctx.builder.getTypeName(injectable.aliasType)
-      : getFirst(candidates).id;
+    const alias =
+      candidates.size > 1 ? ctx.builder.getTypeName(injectable.aliasType) : getFirst(candidates).id;
     const async: (() => boolean)[] = [];
 
     for (const candidate of candidates) {
       const service = this.serviceAnalyser.analyseServiceDefinition(candidate, argIsAccessor);
-      candidates.size > 1 && service.aliases.add(alias);
+
+      if (candidates.size > 1) {
+        service.aliases.add(alias);
+      }
 
       if (scope === 'global' && service.scope === 'local' && !argIsAccessor) {
         throw new AutowiringError(
@@ -189,7 +205,12 @@ export class Autowiring {
     }
   }
 
-  private single(type: InjectableType, optional: boolean, alias: string, async: () => AsyncMode): SingleInjectedArgument {
+  private single(
+    type: InjectableType,
+    optional: boolean,
+    alias: string,
+    async: () => AsyncMode,
+  ): SingleInjectedArgument {
     return withAsync(async, {
       kind: 'injected',
       mode: 'single',
@@ -208,7 +229,11 @@ export class Autowiring {
     });
   }
 
-  private iterable(spread: boolean, alias: string, async: () => AsyncMode): IterableInjectedArgument {
+  private iterable(
+    spread: boolean,
+    alias: string,
+    async: () => AsyncMode,
+  ): IterableInjectedArgument {
     return withAsync(async, {
       kind: 'injected',
       mode: 'iterable',
@@ -217,7 +242,11 @@ export class Autowiring {
     });
   }
 
-  private accessor(returnType: ReturnType, alias: string, async: () => boolean): AccessorInjectedArgument {
+  private accessor(
+    returnType: ReturnType,
+    alias: string,
+    async: () => boolean,
+  ): AccessorInjectedArgument {
     return withAsync(async, {
       kind: 'injected',
       mode: 'accessor',
@@ -235,10 +264,7 @@ export class Autowiring {
       return undefined;
     }
 
-    const definitions = this.getInjectableDynamicServices(
-      ctx.builder,
-      definition,
-    );
+    const definitions = this.getInjectableDynamicServices(ctx.builder, definition);
 
     const services = mapMap(definitions, (foreignId, definition) => {
       const service = this.serviceAnalyser.analyseServiceDefinition(definition);

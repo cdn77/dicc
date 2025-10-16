@@ -4,7 +4,8 @@ import { Event } from './event';
 import { EventConstructor, EventHandler, EventSubscriber } from './types';
 
 export class EventDispatcher {
-  private readonly events: Map<EventConstructor<any>, Map<EventHandler<any>, EventHandler<any>>> = new Map();
+  private readonly events: Map<EventConstructor<any>, Map<EventHandler<any>, EventHandler<any>>> =
+    new Map();
 
   addSubscriber(subscriber: EventSubscriber): void {
     for (const [event, handler] of subscriber.getSubscribedEvents()) {

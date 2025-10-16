@@ -3,8 +3,10 @@ import {
   ArgumentList,
   AsyncMode,
   AutoImplement,
-  Call, ChildServiceRegistrations,
-  Factory, ForkHookInfo,
+  Call,
+  ChildServiceRegistrations,
+  Factory,
+  ForkHookInfo,
   HookInfo,
   InjectedArgument,
   OverriddenArgument,
@@ -17,9 +19,7 @@ import { compareServiceIds, formatType } from './utils';
 import { WriterFactory } from './writerFactory';
 
 export class ServiceCompiler {
-  constructor(
-    private readonly writerFactory: WriterFactory,
-  ) {}
+  constructor(private readonly writerFactory: WriterFactory) {}
 
   compileDefinitions(services: Iterable<Service>, resources: Map<string, Resource>): string {
     const writer = this.writerFactory.create();
@@ -42,7 +42,10 @@ export class ServiceCompiler {
 
   private compileDefinition(service: Service, resources: Map<string, Resource>): string {
     const writer = this.writerFactory.create();
-    writer.conditionalWrite(service.aliases.size > 0, `aliases: ${this.compileAliases(service)},\n`);
+    writer.conditionalWrite(
+      service.aliases.size > 0,
+      `aliases: ${this.compileAliases(service)},\n`,
+    );
     writer.write(`factory: ${this.compileFactory(service, resources)},\n`);
     writer.conditionalWrite(service.async, `async: true,\n`);
 
@@ -100,40 +103,39 @@ export class ServiceCompiler {
       resources,
       parentScope,
       factory.kind !== 'foreign' && factory.kind !== 'auto-interface' && factory.call,
-      ...service.decorate?.calls ?? [],
+      ...(service.decorate?.calls ?? []),
       ...this.getAutoFactoryCallsIfEager(service),
     );
 
-    const eagerArgs = factory.kind === 'auto-class' || factory.kind === 'auto-interface'
-      ? this.compileEagerAsyncArgs(factory)
-      : '';
+    const eagerArgs =
+      factory.kind === 'auto-class' || factory.kind === 'auto-interface'
+        ? this.compileEagerAsyncArgs(factory)
+        : '';
 
     const register = this.compileChildServiceRegistrations(service.register);
 
     const decorate = service.decorate
-      ? this.compileCalls(
-        service.decorate.calls,
-        (stmt, call, i, n) => i + 1 < n ? `service = ${awaitKw(call)}${stmt}` : `return ${stmt}`,
-      )
-      : register ? 'return service;' : '';
+      ? this.compileCalls(service.decorate.calls, (stmt, call, i, n) =>
+          i + 1 < n ? `service = ${awaitKw(call)}${stmt}` : `return ${stmt}`,
+        )
+      : register
+        ? 'return service;'
+        : '';
     const multipleDecorate = (service.decorate?.calls.length ?? 0) > 1;
 
     const needsBlock =
-      !!imports
-      || !!eagerArgs
-      || !!register
-      || !!decorate
-      || (factory.kind === 'foreign' && factory.container.async);
+      !!imports ||
+      !!eagerArgs ||
+      !!register ||
+      !!decorate ||
+      (factory.kind === 'foreign' && factory.container.async);
 
     const createService = this.compileCreateService(
       service,
       factory,
       resources,
       scope,
-      multipleDecorate ? 'let'
-        : (decorate || register) ? 'const'
-          : needsBlock ? 'return'
-            : 'inline',
+      multipleDecorate ? 'let' : decorate || register ? 'const' : needsBlock ? 'return' : 'inline',
     );
 
     if (!needsBlock) {
@@ -207,7 +209,12 @@ export class ServiceCompiler {
     }
   }
 
-  private compileAutoImplement(service: Service, factory: AutoImplement, resources: Map<string, Resource>, scope: Set<string>): string {
+  private compileAutoImplement(
+    service: Service,
+    factory: AutoImplement,
+    resources: Map<string, Resource>,
+    scope: Set<string>,
+  ): string {
     const method = factory.method;
     const [assign, eos] = factory.kind === 'auto-class' ? [' =', ';'] : [':', ','];
     const writer = this.writerFactory.create();
@@ -244,7 +251,12 @@ export class ServiceCompiler {
     return writer.toString();
   }
 
-  private compileHook(name: string, hook: HookInfo | undefined, resources: Map<string, Resource>, forceAsync: boolean = false): string {
+  private compileHook(
+    name: string,
+    hook: HookInfo | undefined,
+    resources: Map<string, Resource>,
+    forceAsync: boolean = false,
+  ): string {
     if (!hook || !hook.calls.length) {
       return '';
     }
@@ -261,12 +273,20 @@ export class ServiceCompiler {
     return writer.toString();
   }
 
-  private compileForkHook(hook: ForkHookInfo | undefined, resources: Map<string, Resource>): string {
+  private compileForkHook(
+    hook: ForkHookInfo | undefined,
+    resources: Map<string, Resource>,
+  ): string {
     if (!hook || (!hook.containerCall && !hook.serviceCall && !hook.calls.length)) {
       return '';
     }
 
-    const [imports] = this.compileDynamicImports(resources, new Set(), hook.serviceCall, ...hook.calls);
+    const [imports] = this.compileDynamicImports(
+      resources,
+      new Set(),
+      hook.serviceCall,
+      ...hook.calls,
+    );
     const args = ['callback', 'service', 'di'].slice(0, hook.args);
 
     let body = this.compileForkHookDecoratorCalls(
@@ -311,7 +331,12 @@ export class ServiceCompiler {
     return writer.toString();
   }
 
-  private compileForkHookDecoratorCalls(hook: ForkHookInfo, imports: string, args: string[], cbArg: string): string {
+  private compileForkHookDecoratorCalls(
+    hook: ForkHookInfo,
+    imports: string,
+    args: string[],
+    cbArg: string,
+  ): string {
     if (!hook.calls.length) {
       return 'callback';
     }
@@ -367,10 +392,14 @@ export class ServiceCompiler {
 
   private compileArg(arg: Argument): string {
     switch (arg.kind) {
-      case 'raw': return JSON.stringify(arg.value);
-      case 'literal': return withAsyncMode(arg, arg.source);
-      case 'overridden': return withSpread(arg, withAsyncMode(arg, this.compileOverriddenArg(arg)));
-      case 'injected': return this.compileInjectedArgument(arg);
+      case 'raw':
+        return JSON.stringify(arg.value);
+      case 'literal':
+        return withAsyncMode(arg, arg.source);
+      case 'overridden':
+        return withSpread(arg, withAsyncMode(arg, this.compileOverriddenArg(arg)));
+      case 'injected':
+        return this.compileInjectedArgument(arg);
     }
   }
 
@@ -382,8 +411,10 @@ export class ServiceCompiler {
 
   private compileInjectedArgument(arg: InjectedArgument): string {
     switch (arg.mode) {
-      case 'scoped-runner': return `{ async run(cb) { return di.run(cb); } }`;
-      case 'injector': return `(service) => di.register('${arg.id}', service)`;
+      case 'scoped-runner':
+        return `{ async run(cb) { return di.run(cb); } }`;
+      case 'injector':
+        return `(service) => di.register('${arg.id}', service)`;
       case 'accessor':
         return `${asyncKw(arg)}() => di.${method(arg.target)}('${arg.alias}'${needKw(arg)})`;
     }
@@ -416,7 +447,7 @@ export class ServiceCompiler {
     const queue: Call[] = targets.filter((target) => !!target);
     let target: Call | undefined;
 
-    while (target = queue.shift()) {
+    while ((target = queue.shift())) {
       checkResource(target.resource);
 
       for (const arg of target.args) {
@@ -452,24 +483,27 @@ export class ServiceCompiler {
     }
   }
 
-  private * getAutoFactoryCallsIfEager(service: Service): Iterable<Call> {
+  private *getAutoFactoryCallsIfEager(service: Service): Iterable<Call> {
     if (
-      !service.factory
-      || (service.factory.kind !== 'auto-class' && service.factory.kind !== 'auto-interface')
-      || service.factory.method.name !== 'create'
-      || service.factory.method.async
+      !service.factory ||
+      (service.factory.kind !== 'auto-class' && service.factory.kind !== 'auto-interface') ||
+      service.factory.method.name !== 'create' ||
+      service.factory.method.async
     ) {
       return;
     }
 
     const target = service.factory.method.service;
 
-    if (target.factory && (target.factory.kind === 'local' || target.factory.kind === 'auto-class')) {
+    if (
+      target.factory &&
+      (target.factory.kind === 'local' || target.factory.kind === 'auto-class')
+    ) {
       yield target.factory.call;
     }
 
     if (target.decorate) {
-      yield * target.decorate.calls;
+      yield* target.decorate.calls;
     }
   }
 
@@ -478,10 +512,9 @@ export class ServiceCompiler {
       return '';
     }
 
-    return this.compilePromiseAll(mapMap(
-      factory.method.eagerDeps,
-      (name, arg) => [name, this.compileArg(arg)],
-    ));
+    return this.compilePromiseAll(
+      mapMap(factory.method.eagerDeps, (name, arg) => [name, this.compileArg(arg)]),
+    );
   }
 
   private compileChildServiceRegistrations(registrations?: ChildServiceRegistrations): string {
@@ -500,9 +533,7 @@ export class ServiceCompiler {
 
   private compilePromiseAll(stmts: Map<string, string>): string {
     if (stmts.size < 2) {
-      return [...stmts]
-        .map(([alias, stmt]) => `const ${alias} = await ${stmt};\n`)
-        .join('');
+      return [...stmts].map(([alias, stmt]) => `const ${alias} = await ${stmt};\n`).join('');
     }
 
     const writer = this.writerFactory.create();
@@ -517,20 +548,25 @@ export class ServiceCompiler {
   }
 }
 
-
 function withAsyncMode<O extends { async: AsyncMode }>(o: O, value: string): string {
   switch (o.async) {
-    case 'none': return value;
-    case 'await': return `await ${value}`;
-    case 'wrap': return `Promise.resolve(${value})`;
+    case 'none':
+      return value;
+    case 'await':
+      return `await ${value}`;
+    case 'wrap':
+      return `Promise.resolve(${value})`;
   }
 }
 
 function withIterableMode<O extends { async: AsyncMode }>(o: O, value: string): string {
   switch (o.async) {
-    case 'none': return value;
-    case 'await': return `await toSyncIterable(${value})`;
-    case 'wrap': return `toAsyncIterable(${value})`;
+    case 'none':
+      return value;
+    case 'await':
+      return `await toSyncIterable(${value})`;
+    case 'wrap':
+      return `toAsyncIterable(${value})`;
   }
 }
 
@@ -552,9 +588,12 @@ function needKw<Value extends { need: boolean }>(value: Value): string {
 
 function method(mode: 'single' | 'list' | 'iterable'): string {
   switch (mode) {
-    case 'single': return 'get';
-    case 'list': return 'find';
-    case 'iterable': return 'iterate';
+    case 'single':
+      return 'get';
+    case 'list':
+      return 'find';
+    case 'iterable':
+      return 'iterate';
   }
 }
 
@@ -607,7 +646,7 @@ function resolveFactorySignature(
     }
   }
 
-  if (async && inject || service.factory.kind === 'local') {
+  if ((async && inject) || service.factory.kind === 'local') {
     return [async, inject];
   }
 

@@ -11,9 +11,7 @@ export class ParentImplementationOfChildDynamicService implements DynamicChildSe
 }
 
 class ParentServiceDependingOnChildPublicService {
-  constructor(
-    readonly service: ChildPublicInterface,
-  ) {}
+  constructor(readonly service: ChildPublicInterface) {}
 }
 
 export const parentServiceDependingOnChildPublicService = {

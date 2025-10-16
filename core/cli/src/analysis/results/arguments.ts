@@ -1,14 +1,9 @@
 import { Call } from './call';
 
-export type AsyncMode =
-  | 'await'
-  | 'wrap'
-  | 'none';
+export type AsyncMode = 'await' | 'wrap' | 'none';
 
 export function getAsyncMode(valueIsAsync: boolean, targetWantsAsync: boolean): AsyncMode {
-  return valueIsAsync === targetWantsAsync
-    ? 'none'
-    : valueIsAsync ? 'await' : 'wrap';
+  return valueIsAsync === targetWantsAsync ? 'none' : valueIsAsync ? 'await' : 'wrap';
 }
 
 export type RawArgument = {
@@ -95,11 +90,7 @@ export type InjectedArgument =
   | TupleInjectedArgument
   | ScopedRunnerInjectedArgument;
 
-export type Argument =
-  | RawArgument
-  | LiteralArgument
-  | OverriddenArgument
-  | InjectedArgument;
+export type Argument = RawArgument | LiteralArgument | OverriddenArgument | InjectedArgument;
 
 export type ArgumentList = Iterable<Argument> & {
   length: number;

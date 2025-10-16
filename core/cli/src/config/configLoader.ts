@@ -4,17 +4,10 @@ import { parse } from 'yaml';
 import { ConfigError } from '../errors';
 import { CompilerConfig, compilerConfigSchema } from './types';
 
-const defaultConfigFiles = [
-  'dicc.yaml',
-  'dicc.yml',
-  '.dicc.yaml',
-  '.dicc.yml',
-];
+const defaultConfigFiles = ['dicc.yaml', 'dicc.yml', '.dicc.yaml', '.dicc.yml'];
 
 export class ConfigLoader {
-  constructor(
-    private readonly configFile?: string,
-  ) {}
+  constructor(private readonly configFile?: string) {}
 
   async load(): Promise<CompilerConfig> {
     const [file, contents] = await this.resolveAndReadFile();

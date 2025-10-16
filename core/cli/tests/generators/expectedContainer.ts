@@ -5,14 +5,12 @@ interface PublicServices {
   'testDependingOnGenerators': ServiceType<typeof definitions0.testDependingOnGenerators>;
 }
 
-interface DynamicServices {}
-
 interface AnonymousServices {
   '#AnAlias0.0': ServiceType<typeof definitions0.listGenerator>;
   '#AnotherAlias0.0': ServiceType<typeof definitions0.iterableGenerator>;
 }
 
-export class TestContainer extends Container<PublicServices, DynamicServices, AnonymousServices> {
+export class TestContainer extends Container<PublicServices, object, AnonymousServices> {
   constructor() {
     super({
       'testDependingOnGenerators': {

@@ -18,7 +18,7 @@ export type CompilerExtensionReferences = {
 export interface CompilerExtensionConstructor {
   readonly inject?: CompilerExtensionInjectSpecifier[];
   readonly references?: CompilerExtensionReferences;
-  readonly configSchema?: z.AnyZodObject;
+  readonly configSchema?: z.ZodObject;
 
   new (...args: any[]): CompilerExtension;
 }

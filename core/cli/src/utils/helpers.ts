@@ -10,13 +10,17 @@ export function getOrCreate<K, V>(map: Map<K, V>, key: K, factory: () => V): V {
   return value;
 }
 
-export function allocateInSet(set: Set<string>, format: string, cb?: (key: string) => void): string {
+export function allocateInSet(
+  set: Set<string>,
+  format: string,
+  cb?: (key: string) => void,
+): string {
   for (let i = 0; ; ++i) {
     const value = format.replace(/\{i}/, i.toString());
 
     if (!set.has(value)) {
       set.add(value);
-      cb && cb(value);
+      cb?.(value);
       return value;
     }
   }
@@ -43,7 +47,7 @@ export function getFirstIfOnly<T>(items: Iterable<T>): T | undefined {
   return next !== undefined ? undefined : first;
 }
 
-export function * skip<T>(count: number, iterable: Iterable<T>): Iterable<T> {
+export function* skip<T>(count: number, iterable: Iterable<T>): Iterable<T> {
   for (const value of iterable) {
     if (count > 0) {
       --count;
@@ -58,7 +62,10 @@ export function mapSet<T, R>(items: Set<T>, cb: (value: T) => R): R[] {
   return [...items].map(cb);
 }
 
-export function mapMap<K1, V1, K2, V2>(map: Map<K1, V1>, cb: (k: K1, v: V1) => [K2, V2]): Map<K2, V2> {
+export function mapMap<K1, V1, K2, V2>(
+  map: Map<K1, V1>,
+  cb: (k: K1, v: V1) => [K2, V2],
+): Map<K2, V2> {
   const map2: Map<K2, V2> = new Map();
 
   for (const [k, v] of map) {
@@ -68,7 +75,7 @@ export function mapMap<K1, V1, K2, V2>(map: Map<K1, V1>, cb: (k: K1, v: V1) => [
   return map2;
 }
 
-export function * mapIterable<V, R>(iterable: Iterable<V>, cb: (value: V) => R): Iterable<R> {
+export function* mapIterable<V, R>(iterable: Iterable<V>, cb: (value: V) => R): Iterable<R> {
   for (const item of iterable) {
     yield cb(item);
   }
@@ -78,10 +85,15 @@ export function filterMap<K, V>(map: Map<K, V>, predicate: (v: V, k: K) => boole
   return new Map([...map].filter(([k, v]) => predicate(v, k)));
 }
 
-export type MapEntry<K, V> = { k: K, v: V };
+export type MapEntry<K, V> = { k: K; v: V };
 
-export function sortMap<K, V>(map: Map<K, V>, callback: (a: MapEntry<K, V>, b: MapEntry<K, V>) => number): Map<K, V> {
-  return new Map([...map].sort(([ak, av], [bk, bv]) => callback({ k: ak, v: av }, { k: bk, v: bv })));
+export function sortMap<K, V>(
+  map: Map<K, V>,
+  callback: (a: MapEntry<K, V>, b: MapEntry<K, V>) => number,
+): Map<K, V> {
+  return new Map(
+    [...map].sort(([ak, av], [bk, bv]) => callback({ k: ak, v: av }, { k: bk, v: bv })),
+  );
 }
 
 export function mergeMaps<K1, V1, K2, V2>(a: Map<K1, V1>, b: Map<K2, V2>): Map<K1 | K2, V1 | V2> {

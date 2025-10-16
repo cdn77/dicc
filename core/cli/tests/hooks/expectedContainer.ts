@@ -7,8 +7,6 @@ interface PublicServices {
   'testServiceHooks': ServiceType<typeof definitions0.testServiceHooks>;
 }
 
-interface DynamicServices {}
-
 interface AnonymousServices {
   '#OnCreateHookDependency0.0': definitions0.OnCreateHookDependency;
   '#OnDestroyHookDependency0.0': definitions0.OnDestroyHookDependency;
@@ -16,7 +14,7 @@ interface AnonymousServices {
   '#ServiceDependency0.0': definitions0.ServiceDependency;
 }
 
-export class TestContainer extends Container<PublicServices, DynamicServices, AnonymousServices> {
+export class TestContainer extends Container<PublicServices, object, AnonymousServices> {
   constructor() {
     super({
       'testAliasDecorators': {

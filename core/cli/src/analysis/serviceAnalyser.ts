@@ -7,8 +7,8 @@ import {
   CallableDefinition,
   DecoratorDefinition,
   FactoryDefinition,
-  LiteralDefinition,
   ForeignServiceDefinition,
+  LiteralDefinition,
   LocalServiceDefinition,
   PromiseType,
   ServiceDefinition,
@@ -48,13 +48,11 @@ export class ServiceAnalyser {
   private readonly dependencyChains: ServiceDefinition[][] = [];
   private currentDependencyChain: ServiceDefinition[] = [];
 
-  constructor(
-    autowiringFactory: AutowiringFactory,
-  ) {
+  constructor(autowiringFactory: AutowiringFactory) {
     this.autowiring = autowiringFactory.create(this);
   }
 
-  * getAnalysedServices(): Iterable<[ContainerBuilder, Service]> {
+  *getAnalysedServices(): Iterable<[ContainerBuilder, Service]> {
     for (const [definition, service] of this.visitedServices) {
       if (!this.excludedServices.has(service)) {
         yield [definition.builder, service];
@@ -115,7 +113,7 @@ export class ServiceAnalyser {
       const parent = this.analyseServiceDefinition(definition.parent);
       const service = definition.definition && this.analyseServiceDefinition(definition.definition);
 
-      return withAsync(() => service ? service.async : definition.async, {
+      return withAsync(() => (service ? service.async : definition.async), {
         kind: 'foreign',
         container: withAsync(() => parent.async, {
           id: definition.parent.id,
@@ -204,20 +202,23 @@ export class ServiceAnalyser {
     decorators: DecoratorDefinition[],
   ): ForkHookInfo | undefined {
     const containerCall = definition.isLocal() && definition.container;
-    const serviceCall = definition.isExplicit() && definition.onFork
-      ? this.analyseCall(
-        { ...ctx, method: 'onFork' },
-        definition.onFork,
-        'global',
-        indexedArgs('callback', 'service'),
-      )
-      : undefined;
+    const serviceCall =
+      definition.isExplicit() && definition.onFork
+        ? this.analyseCall(
+            { ...ctx, method: 'onFork' },
+            definition.onFork,
+            'global',
+            indexedArgs('callback', 'service'),
+          )
+        : undefined;
 
     const args: number[] = [
       1, // at least (callback) must always be provided
       containerCall ? 2 : 0, // container call needs (callback, service)
       serviceCall // injected service call needs (callback, service, di), otherwise at most (callback, service)
-        ? serviceCall.args.inject ? 3 : Math.min(serviceCall.args.length, 2)
+        ? serviceCall.args.inject
+          ? 3
+          : Math.min(serviceCall.args.length, 2)
         : 0,
     ];
 
@@ -265,7 +266,7 @@ export class ServiceAnalyser {
       }
 
       let eagerDeps: Map<string, Argument> | undefined;
-      const getEagerDeps = () => eagerDeps ??= this.analyseAutoFactoryEagerDeps(service);
+      const getEagerDeps = () => (eagerDeps ??= this.analyseAutoFactoryEagerDeps(service));
 
       return {
         name: 'create',
@@ -284,31 +285,37 @@ export class ServiceAnalyser {
     return withAsync(
       () => {
         if (service.async && !returnsPromise) {
-          throw new DefinitionError(`Auto-implemented getter of async service doesn't return Promise`, {
-            builder: ctx.builder,
-            resource: method.resource,
-            path: method.path,
-            node: method.node,
-          });
+          throw new DefinitionError(
+            `Auto-implemented getter of async service doesn't return Promise`,
+            {
+              builder: ctx.builder,
+              resource: method.resource,
+              path: method.path,
+              node: method.node,
+            },
+          );
         }
 
         return returnsPromise;
       },
-      { name: 'get', target: service.id, need: !method.returnType.nullable }
+      { name: 'get', target: service.id, need: !method.returnType.nullable },
     );
   }
 
   private analyseAutoFactoryEagerDeps(service: Service): Map<string, Argument> {
-    if (!service.factory || (service.factory.kind !== 'local' && service.factory.kind !== 'auto-class')) {
+    if (
+      !service.factory ||
+      (service.factory.kind !== 'local' && service.factory.kind !== 'auto-class')
+    ) {
       throw new InternalError('This should not happen');
     }
 
     const deps: Map<string, Argument> = new Map(this.extractEagerArgs(service.factory.call));
 
     if (
-      service.factory.kind === 'auto-class'
-      && service.factory.method.name === 'create'
-      && service.factory.method.eagerDeps.size
+      service.factory.kind === 'auto-class' &&
+      service.factory.method.name === 'create' &&
+      service.factory.method.eagerDeps.size
     ) {
       for (const [name, arg] of service.factory.method.eagerDeps) {
         deps.set(name, arg);
@@ -318,7 +325,11 @@ export class ServiceAnalyser {
     }
 
     if (service.decorate && service.decorate.async) {
-      Object.defineProperty(service.decorate, 'async', { get() { return false; } });
+      Object.defineProperty(service.decorate, 'async', {
+        get() {
+          return false;
+        },
+      });
 
       for (const call of service.decorate.calls) {
         for (const [name, arg] of this.extractEagerArgs(call)) {
@@ -330,12 +341,18 @@ export class ServiceAnalyser {
     return deps;
   }
 
-  private * extractEagerArgs(call: Call): Iterable<[string, Argument]> {
+  private *extractEagerArgs(call: Call): Iterable<[string, Argument]> {
     if (call.async) {
-      throw new Error(`Async call '${call.statement}(...)' in auto-implemented factory method cannot be resolved eagerly`);
+      throw new Error(
+        `Async call '${call.statement}(...)' in auto-implemented factory method cannot be resolved eagerly`,
+      );
     }
 
-    Object.defineProperty(call.args, 'async', { get() { return false; } });
+    Object.defineProperty(call.args, 'async', {
+      get() {
+        return false;
+      },
+    });
     let i = 0;
 
     for (const arg of call.args) {
@@ -356,9 +373,12 @@ export class ServiceAnalyser {
     scope: ServiceScope,
     overrides?: Map<string | number, ArgumentOverride>,
   ): Call {
-    const [pre, post] = callable instanceof FactoryDefinition && callable.method
-      ? callable.method === 'constructor' ? ['new ', ''] : ['', `.${callable.method}`]
-      : ['', ''];
+    const [pre, post] =
+      callable instanceof FactoryDefinition && callable.method
+        ? callable.method === 'constructor'
+          ? ['new ', '']
+          : ['', `.${callable.method}`]
+        : ['', ''];
     const resource = ctx.builder.getResourceAlias(callable.resource);
 
     return {
@@ -378,9 +398,15 @@ export class ServiceAnalyser {
     const items: Argument[] = [];
     const result: Omit<ArgumentList, 'async'> = {
       inject: false,
-      get length() { return items.length; },
-      *[Symbol.iterator]() { yield * items; },
-      replace(index: number, arg: Argument) { items[index] = arg; },
+      get length() {
+        return items.length;
+      },
+      *[Symbol.iterator]() {
+        yield* items;
+      },
+      replace(index: number, arg: Argument) {
+        items[index] = arg;
+      },
     };
     const undefs: Argument[] = [];
 
@@ -391,13 +417,22 @@ export class ServiceAnalyser {
         const overridden = this.resolveOverride(ctx, arg, name, scope, override);
         items.push(...undefs.splice(0, undefs.length), overridden);
 
-        if (overridden.kind === 'overridden' && overridden.value.kind === 'call') {
-          overridden.value.args.inject && (result.inject = true);
+        if (
+          overridden.kind === 'overridden' &&
+          overridden.value.kind === 'call' &&
+          overridden.value.args.inject
+        ) {
+          result.inject = true;
         }
         continue;
       }
 
-      const argument = this.autowiring.resolveArgumentInjection({ ...ctx, argument: name }, arg.type, arg, scope);
+      const argument = this.autowiring.resolveArgumentInjection(
+        { ...ctx, argument: name },
+        arg.type,
+        arg,
+        scope,
+      );
 
       if (!argument) {
         undefs.push({ kind: 'literal', source: 'undefined', async: 'none' });
@@ -405,7 +440,10 @@ export class ServiceAnalyser {
       }
 
       items.push(...undefs.splice(0, undefs.length), argument);
-      argument.kind === 'injected' && (result.inject = true);
+
+      if (argument.kind === 'injected') {
+        result.inject = true;
+      }
     }
 
     return withAsync(hasAsyncArg, result);
@@ -413,11 +451,9 @@ export class ServiceAnalyser {
     function hasAsyncArg(args: Iterable<Argument> = result): boolean {
       for (const arg of args) {
         if (
-          hasAsyncMode(arg) && arg.async === 'await'
-          ||
-          arg.kind === 'overridden' && arg.value.kind === 'call' && arg.value.args.async
-          ||
-          arg.kind === 'injected' && arg.mode === 'tuple' && hasAsyncArg(arg.values)
+          (hasAsyncMode(arg) && arg.async === 'await') ||
+          (arg.kind === 'overridden' && arg.value.kind === 'call' && arg.value.args.async) ||
+          (arg.kind === 'injected' && arg.mode === 'tuple' && hasAsyncArg(arg.values))
         ) {
           return true;
         }
@@ -441,7 +477,11 @@ export class ServiceAnalyser {
     let value: OverrideCall | OverrideValue;
 
     if (override instanceof CallableDefinition) {
-      const call = this.analyseCall({ ...ctx, method: 'override', argument: name }, override, scope);
+      const call = this.analyseCall(
+        { ...ctx, method: 'override', argument: name },
+        override,
+        scope,
+      );
       value = { kind: 'call', ...call };
     } else {
       const resource = ctx.builder.getResourceAlias(override.resource);
@@ -454,7 +494,10 @@ export class ServiceAnalyser {
     return { kind: 'overridden', value, async, spread: arg.rest };
   }
 
-  private resolveScope(definition: ServiceDefinition, decorators: DecoratorDefinition[]): ServiceScope {
+  private resolveScope(
+    definition: ServiceDefinition,
+    decorators: DecoratorDefinition[],
+  ): ServiceScope {
     const decoratorWithScope = decorators.findLast((decorator) => decorator.scope !== undefined);
     return decoratorWithScope?.scope ?? (definition.isLocal() ? definition.scope : 'global');
   }
@@ -497,7 +540,10 @@ export class ServiceAnalyser {
     throw new CyclicDependencyError(...this.currentDependencyChain.slice(idx), definition);
   }
 
-  private releaseCyclicDependencyCheck(definition: ServiceDefinition, startedNewChain: boolean): void {
+  private releaseCyclicDependencyCheck(
+    definition: ServiceDefinition,
+    startedNewChain: boolean,
+  ): void {
     if (definition !== this.currentDependencyChain.pop()) {
       throw new InternalError('Cyclic dependency checker is broken');
     }
@@ -543,10 +589,7 @@ function isServiceAsync(service: Service): boolean {
     }
   }
 
-  return service.register?.async
-    || service.decorate?.async
-    || service.onCreate?.async
-    || false;
+  return service.register?.async || service.decorate?.async || service.onCreate?.async || false;
 }
 
 function isAnonymous(definition: ServiceDefinition): boolean {
@@ -559,7 +602,11 @@ function isAnonymous(definition: ServiceDefinition): boolean {
 
 function hasAsyncMode(
   argument: Argument,
-): argument is OverriddenArgument | SingleInjectedArgument | ListInjectedArgument | IterableInjectedArgument {
+): argument is
+  | OverriddenArgument
+  | SingleInjectedArgument
+  | ListInjectedArgument
+  | IterableInjectedArgument {
   switch (argument.kind) {
     case 'raw':
       return false;

@@ -6,15 +6,16 @@ export class OnForkHookDependency {}
 export class OnDestroyHookDependency {}
 
 class TestServiceHooks {
-  constructor(
-    readonly dep: ServiceDependency,
-  ) {}
+  constructor(readonly dep: ServiceDependency) {}
 }
 
 export const testServiceHooks = {
   factory: TestServiceHooks,
+  // eslint-disable-next-line unused-imports/no-unused-vars
   onCreate: (service, dep: OnCreateHookDependency) => {},
+  // eslint-disable-next-line unused-imports/no-unused-vars
   onFork: (cb, service, dep: OnForkHookDependency) => cb(),
+  // eslint-disable-next-line unused-imports/no-unused-vars
   onDestroy: (service, dep: OnDestroyHookDependency) => {},
 } satisfies ServiceDefinition<TestServiceHooks>;
 
@@ -46,6 +47,7 @@ export const testAliasDecorators = {
 export const serviceDecorators = {
   decorate: (service) => service,
   onCreate: async () => {},
+  // eslint-disable-next-line unused-imports/no-unused-vars
   onFork: (service) => {},
   priority: 1,
 } satisfies ServiceDecorator<TestServiceDecorators>;

@@ -1,5 +1,5 @@
-import { ServiceDefinition } from '../../definitions';
 import { ContainerBuilder } from '../../container';
+import { ServiceDefinition } from '../../definitions';
 import { ContainerReflection, ForeignServiceReflection } from './types';
 
 export interface BuilderReflectionFactory {
@@ -7,17 +7,15 @@ export interface BuilderReflectionFactory {
 }
 
 export class BuilderReflection implements ContainerReflection {
-  constructor(
-    private readonly container: ContainerBuilder,
-  ) {}
+  constructor(private readonly container: ContainerBuilder) {}
 
-  * getPublicServices(): Iterable<ForeignServiceReflection> {
+  *getPublicServices(): Iterable<ForeignServiceReflection> {
     for (const definition of this.container.getPublicServices()) {
       yield this.reflect(definition);
     }
   }
 
-  * getDynamicServices(): Iterable<ForeignServiceReflection> {
+  *getDynamicServices(): Iterable<ForeignServiceReflection> {
     for (const definition of this.container.getDynamicServices()) {
       yield this.reflect(definition);
     }

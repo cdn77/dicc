@@ -1,10 +1,4 @@
-import {
-  Node,
-  SyntaxKind,
-  KindToNodeMappings,
-  SourceFile,
-  Type,
-} from 'ts-morph';
+import { KindToNodeMappings, Node, SourceFile, SyntaxKind, Type } from 'ts-morph';
 import { InternalError } from '../errors';
 import { getOrCreate } from './helpers';
 import { ModuleResolver } from './moduleResolver';
@@ -18,11 +12,13 @@ export type ResolvedMap<M extends ReferenceMap> = {
 };
 
 export class ReferenceResolverFactory {
-  constructor(
-    private readonly moduleResolver: ModuleResolver,
-  ) {}
+  constructor(private readonly moduleResolver: ModuleResolver) {}
 
-  create<M extends ReferenceMap>(moduleName: string, map: M, resolveFrom?: string): ReferenceResolver<M> {
+  create<M extends ReferenceMap>(
+    moduleName: string,
+    map: M,
+    resolveFrom?: string,
+  ): ReferenceResolver<M> {
     return new ReferenceResolver(this.moduleResolver, moduleName, map, resolveFrom);
   }
 }
@@ -55,25 +51,27 @@ export class ReferenceResolver<M extends ReferenceMap> {
   private resolve(sourceFile: SourceFile, map: M): ResolvedMap<M> {
     const exports = sourceFile.getExportedDeclarations();
 
-    return Object.fromEntries(Object.entries(map).map(([name, kind]) => {
-      const declarations = exports.get(name);
+    return Object.fromEntries(
+      Object.entries(map).map(([name, kind]) => {
+        const declarations = exports.get(name);
 
-      if (!declarations) {
-        throw new InternalError(
-          `Unable to resolve reference '${name}': module '${this.moduleName}' has no such export`,
-        );
-      }
+        if (!declarations) {
+          throw new InternalError(
+            `Unable to resolve reference '${name}': module '${this.moduleName}' has no such export`,
+          );
+        }
 
-      const node = declarations.find(Node.is(kind));
+        const node = declarations.find(Node.is(kind));
 
-      if (!node) {
-        throw new InternalError(
-          `Unable to resolve reference '${name}': module '${this.moduleName}' has no export of the required kind`,
-        );
-      }
+        if (!node) {
+          throw new InternalError(
+            `Unable to resolve reference '${name}': module '${this.moduleName}' has no export of the required kind`,
+          );
+        }
 
-      return [name, node] as [any, any];
-    }));
+        return [name, node] as [any, any];
+      }),
+    );
   }
 
   private resolveRootType(type: Type): Type {

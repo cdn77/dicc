@@ -5,8 +5,6 @@ interface PublicServices {
   'entrypoint': Promise<ServiceType<typeof definitions0.entrypoint>>;
 }
 
-interface DynamicServices {}
-
 interface AnonymousServices {
   '#AsyncService10.0': Promise<definitions0.AsyncService1>;
   '#AsyncService20.0': Promise<definitions0.AsyncService2>;
@@ -45,7 +43,7 @@ interface AnonymousServices {
   '#TestInjectSyncListOfSyncServices0.0': definitions0.TestInjectSyncListOfSyncServices;
 }
 
-export class TestContainer extends Container<PublicServices, DynamicServices, AnonymousServices> {
+export class TestContainer extends Container<PublicServices, object, AnonymousServices> {
   constructor() {
     super({
       'entrypoint': {

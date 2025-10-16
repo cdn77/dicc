@@ -2,7 +2,10 @@ export function isPromiseLike(value: any): value is PromiseLike<any> {
   return 'then' in value && typeof value.then === 'function';
 }
 
-export function createIterator<T, R>(input: T[], transform: (value: T) => R | undefined): Iterable<R> {
+export function createIterator<T, R>(
+  input: T[],
+  transform: (value: T) => R | undefined,
+): Iterable<R> {
   return {
     *[Symbol.iterator]() {
       for (const value of input) {
@@ -16,7 +19,10 @@ export function createIterator<T, R>(input: T[], transform: (value: T) => R | un
   };
 }
 
-export function createAsyncIterator<T, R>(input: T[], transform: (value: T) => Promise<R | undefined>): AsyncIterable<R> {
+export function createAsyncIterator<T, R>(
+  input: T[],
+  transform: (value: T) => Promise<R | undefined>,
+): AsyncIterable<R> {
   return {
     async *[Symbol.asyncIterator]() {
       for (const value of input) {
@@ -30,8 +36,8 @@ export function createAsyncIterator<T, R>(input: T[], transform: (value: T) => P
   };
 }
 
-export async function * toAsyncIterable<T>(iterable: Iterable<T>): AsyncIterable<T> {
-  yield * iterable;
+export async function* toAsyncIterable<T>(iterable: Iterable<T>): AsyncIterable<T> {
+  yield* iterable;
 }
 
 export async function toSyncIterable<T>(iterable: AsyncIterable<T>): Promise<Iterable<T>> {

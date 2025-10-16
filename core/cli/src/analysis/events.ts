@@ -4,9 +4,7 @@ import { Container } from './results';
 import { ServiceAnalyser } from './serviceAnalyser';
 
 export class ContainersAnalysed extends Event {
-  constructor(
-    readonly containers: Map<ContainerBuilder, Container>,
-  ) {
+  constructor(readonly containers: Map<ContainerBuilder, Container>) {
     super();
   }
 }

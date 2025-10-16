@@ -1,6 +1,6 @@
 import assert from 'node:assert';
 import { spawn } from 'node:child_process';
-import { readFile, unlink, stat, writeFile } from 'node:fs/promises';
+import { readFile, stat, unlink, writeFile } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -58,7 +58,9 @@ export async function compareGeneratedContainer(path, name) {
 
   try {
     await unlink(generatedFile);
-  } catch { /* noop */ }
+  } catch {
+    /* noop */
+  }
 }
 
 export async function runTestSuite(url) {

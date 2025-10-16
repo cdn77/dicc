@@ -7,12 +7,14 @@ import { CompilerConfig, ConfigLoader } from '../../config';
 import { EventDispatcher, EventSubscriber } from '../../events';
 import { Argv } from '../argv';
 
+// eslint-disable-next-line @typescript-eslint/no-namespace
 export namespace debug {
   export const logger = {
-    factory: (plugins: Plugin[]) => new Logger({
-      globalContext: {},
-      plugins,
-    }),
+    factory: (plugins: Plugin[]) =>
+      new Logger({
+        globalContext: {},
+        plugins,
+      }),
     anonymous: true,
   } satisfies ServiceDefinition<Logger>;
 
@@ -26,6 +28,7 @@ export namespace debug {
   } satisfies ServiceDefinition<ConsoleHandler, Plugin>;
 }
 
+// eslint-disable-next-line @typescript-eslint/no-namespace
 export namespace config {
   export const loader = {
     factory: ConfigLoader,
@@ -42,16 +45,17 @@ export namespace config {
 }
 
 export const project = {
-  factory: (config: CompilerConfig) => new Project({
-    tsConfigFilePath: config.project,
-    skipAddingFilesFromTsConfig: true,
-    manipulationSettings: {
-      indentationText: IndentationText.TwoSpaces,
-      newLineKind: NewLineKind.LineFeed,
-      quoteKind: QuoteKind.Single,
-      useTrailingCommas: true,
-    },
-  }),
+  factory: (config: CompilerConfig) =>
+    new Project({
+      tsConfigFilePath: config.project,
+      skipAddingFilesFromTsConfig: true,
+      manipulationSettings: {
+        indentationText: IndentationText.TwoSpaces,
+        newLineKind: NewLineKind.LineFeed,
+        quoteKind: QuoteKind.Single,
+        useTrailingCommas: true,
+      },
+    }),
   anonymous: true,
 } satisfies ServiceDefinition<Project>;
 

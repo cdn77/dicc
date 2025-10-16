@@ -30,9 +30,7 @@ export type ForeignTypeSpecifier = {
   id: string;
 };
 
-export type TypeSpecifier =
-  | LocalTypeSpecifier
-  | ForeignTypeSpecifier;
+export type TypeSpecifier = LocalTypeSpecifier | ForeignTypeSpecifier;
 
 export type LocalFactory = {
   kind: 'local';
@@ -68,9 +66,7 @@ export type AutoImplementFactoryMethod = {
   eagerDeps: Map<string, Argument>;
 };
 
-export type AutoImplementMethod =
-  | AutoImplementAccessorMethod
-  | AutoImplementFactoryMethod;
+export type AutoImplementMethod = AutoImplementAccessorMethod | AutoImplementFactoryMethod;
 
 export type AutoClass = {
   kind: 'auto-class';
@@ -83,9 +79,7 @@ export type AutoInterface = {
   method: AutoImplementMethod;
 };
 
-export type AutoImplement =
-  | AutoClass
-  | AutoInterface;
+export type AutoImplement = AutoClass | AutoInterface;
 
 export type ChildServiceRegistrations = {
   services: Map<string, SingleInjectedArgument>;

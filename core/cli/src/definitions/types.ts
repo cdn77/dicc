@@ -5,9 +5,7 @@ import { CallableDefinition } from './callableDefinition';
 export type ArgumentOverride = CallableDefinition | OverrideDefinition | LiteralDefinition;
 
 export class LiteralDefinition {
-  constructor(
-    public readonly source: string,
-  ) {}
+  constructor(public readonly source: string) {}
 }
 
 export class SingleType {
@@ -17,7 +15,7 @@ export class SingleType {
     public readonly aliasType: Type = type,
   ) {}
 
-  * getInjectableTypes(): Iterable<InjectableType> {
+  *getInjectableTypes(): Iterable<InjectableType> {
     yield this;
   }
 
@@ -37,7 +35,7 @@ export class ListType {
     this.asSingleType = new SingleType(this.type, this.nullable, this.aliasType);
   }
 
-  * getInjectableTypes(): Iterable<InjectableType> {
+  *getInjectableTypes(): Iterable<InjectableType> {
     yield this.asSingleType;
     yield this;
   }
@@ -62,7 +60,7 @@ export class PromiseType {
     this.asSingleType = new SingleType(this.type, this.nullable, this.aliasType);
   }
 
-  * getInjectableTypes(): Iterable<InjectableType> {
+  *getInjectableTypes(): Iterable<InjectableType> {
     yield this.asSingleType;
     yield this;
   }
@@ -88,7 +86,7 @@ export class IterableType {
     this.asSingleType = new SingleType(this.type, this.nullable, this.aliasType);
   }
 
-  * getInjectableTypes(): Iterable<InjectableType> {
+  *getInjectableTypes(): Iterable<InjectableType> {
     yield this.asSingleType;
     yield this;
   }
@@ -113,7 +111,7 @@ export class AccessorType {
     this.asSingleType = new SingleType(this.type, this.nullable, this.aliasType);
   }
 
-  * getInjectableTypes(): Iterable<InjectableType> {
+  *getInjectableTypes(): Iterable<InjectableType> {
     yield this.asSingleType;
     yield this;
   }
@@ -138,7 +136,7 @@ export class InjectorType {
     this.asSingleType = new SingleType(this.type, this.nullable, this.aliasType);
   }
 
-  * getInjectableTypes(): Iterable<InjectableType> {
+  *getInjectableTypes(): Iterable<InjectableType> {
     yield this.asSingleType;
     yield this;
   }
@@ -151,17 +149,13 @@ export class InjectorType {
 export class TupleType {
   readonly values: ValueType[];
 
-  constructor(
-    ...values: ValueType[]
-  ) {
+  constructor(...values: ValueType[]) {
     this.values = values;
   }
 }
 
 export class ScopedRunnerType {
-  constructor(
-    public readonly nullable: boolean = false,
-  ) {}
+  constructor(public readonly nullable: boolean = false) {}
 }
 
 export type ValueType =
@@ -182,8 +176,4 @@ export type InjectableType =
   | AccessorType
   | InjectorType;
 
-export type ReturnType =
-  | SingleType
-  | ListType
-  | PromiseType
-  | IterableType;
+export type ReturnType = SingleType | ListType | PromiseType | IterableType;

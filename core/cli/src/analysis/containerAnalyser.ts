@@ -84,8 +84,8 @@ export class ContainerAnalyser {
 
     for (const service of implicit) {
       if (
-        hasService(explicitTypes, service)
-        || !service.factory && hasService(concreteImplementations, service)
+        hasService(explicitTypes, service) ||
+        (!service.factory && hasService(concreteImplementations, service))
       ) {
         container.removeService(service);
       }
@@ -164,12 +164,25 @@ export class ContainerAnalyser {
 
     if (type.kind === 'local') {
       const resource = container.resources.get(type.resource);
-      resource && (resource.needsType = true);
-      type.indirect && container.imports.add('type ServiceType');
+
+      if (resource) {
+        resource.needsType = true;
+      }
+
+      if (type.indirect) {
+        container.imports.add('type ServiceType');
+      }
     } else {
       const resource = container.resources.get(type.container.resource);
-      resource && (resource.needsType = true);
-      type.container.indirect && container.imports.add('type ServiceType');
+
+      if (resource) {
+        resource.needsType = true;
+      }
+
+      if (type.container.indirect) {
+        container.imports.add('type ServiceType');
+      }
+
       container.imports.add('type ForeignServiceType');
     }
 
@@ -194,7 +207,11 @@ export class ContainerAnalyser {
 
       if (service.factory.kind === 'auto-class' || service.factory.kind === 'auto-interface') {
         if (service.factory.method.name === 'create' && !service.factory.method.async) {
-          this.analyseServiceResources(container, service.factory.method.service, async ?? service.async);
+          this.analyseServiceResources(
+            container,
+            service.factory.method.service,
+            async ?? service.async,
+          );
         }
       }
     }
@@ -226,10 +243,17 @@ export class ContainerAnalyser {
     }
   }
 
-  private analyseCallResources(container: Container, call: Call, async: boolean = call.async): void {
+  private analyseCallResources(
+    container: Container,
+    call: Call,
+    async: boolean = call.async,
+  ): void {
     if (!async) {
       const resource = container.resources.get(call.resource);
-      resource && (resource.needsValue = true);
+
+      if (resource) {
+        resource.needsValue = true;
+      }
     }
 
     if (container.imports.has('toAsyncIterable') && container.imports.has('toSyncIterable')) {
@@ -239,8 +263,12 @@ export class ContainerAnalyser {
     for (const arg of call.args) {
       if (arg.kind === 'injected' && arg.mode === 'iterable') {
         switch (arg.async) {
-          case 'await': container.imports.add('toSyncIterable'); break;
-          case 'wrap': container.imports.add('toAsyncIterable'); break;
+          case 'await':
+            container.imports.add('toSyncIterable');
+            break;
+          case 'wrap':
+            container.imports.add('toAsyncIterable');
+            break;
         }
       }
     }

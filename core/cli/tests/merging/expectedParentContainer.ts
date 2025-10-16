@@ -5,15 +5,13 @@ interface PublicServices {
   'parentServiceDependingOnChildPublicService': Promise<ServiceType<typeof parentDefinitions0.parentServiceDependingOnChildPublicService>>;
 }
 
-interface DynamicServices {}
-
 interface AnonymousServices {
   '#ChildPublicService0.0': Promise<ForeignServiceType<ServiceType<typeof parentDefinitions0.childContainer>, 'childPublicService'>>;
   '#ParentImplementationOfChildDynamicService0.0': Promise<parentDefinitions0.ParentImplementationOfChildDynamicService>;
   '#TestChildContainer0.0': Promise<ServiceType<typeof parentDefinitions0.childContainer>>;
 }
 
-export class TestParentContainer extends Container<PublicServices, DynamicServices, AnonymousServices> {
+export class TestParentContainer extends Container<PublicServices, object, AnonymousServices> {
   constructor() {
     super({
       'parentServiceDependingOnChildPublicService': {

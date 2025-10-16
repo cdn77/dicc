@@ -35,7 +35,7 @@ type EnqueuedResource = {
 };
 
 type ScanContext = {
-  builder: ContainerBuilder,
+  builder: ContainerBuilder;
   resource: SourceFile;
   path: string;
   exclude?: RegExp;
@@ -67,7 +67,7 @@ export class ResourceScanner {
     }
 
     for (const resource of this.project.addSourceFilesAtPaths(resources)) {
-      this.queue.add({ builder, resource, excludeExports })
+      this.queue.add({ builder, resource, excludeExports });
     }
 
     if (originalCwd) {
@@ -107,7 +107,11 @@ export class ResourceScanner {
       this.scanVariableDeclaration(ctx, node);
     } else if (Node.isIdentifier(node)) {
       this.scanIdentifier(ctx, node);
-    } else if (Node.isClassDeclaration(node) || Node.isInterfaceDeclaration(node) || Node.isFunctionDeclaration(node)) {
+    } else if (
+      Node.isClassDeclaration(node) ||
+      Node.isInterfaceDeclaration(node) ||
+      Node.isFunctionDeclaration(node)
+    ) {
       this.emitDeclaration(ctx, node);
     }
   }
@@ -147,9 +151,7 @@ export class ResourceScanner {
       } else if (Node.isImportClause(definition)) {
         this.scanExportedDeclarations(
           ctx,
-          this.scanImportSpecifier(definition)
-            .getExportedDeclarations()
-            .get('default'),
+          this.scanImportSpecifier(definition).getExportedDeclarations().get('default'),
         );
       } else if (Node.isImportSpecifier(definition)) {
         this.scanExportedDeclarations(
@@ -164,7 +166,9 @@ export class ResourceScanner {
     }
   }
 
-  private scanImportSpecifier(definition: NamespaceImport | ImportClause | ImportSpecifier): SourceFile {
+  private scanImportSpecifier(
+    definition: NamespaceImport | ImportClause | ImportSpecifier,
+  ): SourceFile {
     const sourceFile = definition
       .getFirstAncestorByKindOrThrow(SyntaxKind.ImportDeclaration)
       .getModuleSpecifierSourceFileOrThrow();
@@ -193,12 +197,9 @@ export class ResourceScanner {
   }
 
   private emitDeclaration(ctx: ScanContext, node: DeclarationNode): void {
-    this.eventDispatcher.dispatch(new DeclarationNodeDiscovered(
-      ctx.resource,
-      ctx.path.replace(/\.$/, ''),
-      node,
-      ctx.builder,
-    ));
+    this.eventDispatcher.dispatch(
+      new DeclarationNodeDiscovered(ctx.resource, ctx.path.replace(/\.$/, ''), node, ctx.builder),
+    );
   }
 }
 
@@ -207,11 +208,12 @@ function createExcludeRegex(patterns?: string[]): RegExp | undefined {
     return undefined;
   }
 
-  patterns = patterns.map((p) => p
-    .replace(/[/\-\\^$*+?.()|[\]{}]/g, '\\$&')
-    .replace(/\\\*\\\*/g, '.*')
-    .replace(/\\\*/g, '[^.]*')
+  patterns = patterns.map((p) =>
+    p
+      .replace(/[/\-\\^$*+?.()|[\]{}]/g, '\\$&')
+      .replace(/\\\*\\\*/g, '.*')
+      .replace(/\\\*/g, '[^.]*'),
   );
 
-  return new RegExp(`^(?:${patterns.join('|')})\.$`);
+  return new RegExp(`^(?:${patterns.join('|')})\\.$`);
 }

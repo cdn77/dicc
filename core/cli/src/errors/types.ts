@@ -12,7 +12,14 @@ export type UserCodeContext = {
 export type ContainerContext = {
   builder: ContainerBuilder;
   definition?: ServiceDefinition | DecoratorDefinition;
-  method?: 'factory' | 'override' | 'decorate' | 'onCreate' | 'onFork' | 'onDestroy' | 'auto-implement';
+  method?:
+    | 'factory'
+    | 'override'
+    | 'decorate'
+    | 'onCreate'
+    | 'onFork'
+    | 'onDestroy'
+    | 'auto-implement';
   argument?: string;
 };
 

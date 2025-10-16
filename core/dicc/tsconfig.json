@@ -1,9 +1,7 @@
 {
-  "extends": "../../tsconfig.json",
+  "extends": ["@tsconfig/node22/tsconfig.json", "../../tsconfig.json"],
   "compilerOptions": {
-    "outDir": "dist"
+    "noEmit": true
   },
-  "include": [
-    "src"
-  ]
+  "include": ["src"]
 }

@@ -55,9 +55,7 @@ export const testWithOverriddenAlias = {
 } satisfies ServiceDefinition<TestWithOverriddenAlias, AnotherAlias>;
 
 class TestAliasInjection {
-  constructor(
-    readonly dependencies: AnAlias[],
-  ) {}
+  constructor(readonly dependencies: AnAlias[]) {}
 }
 
 export const testAliasInjection = {
@@ -66,8 +64,8 @@ export const testAliasInjection = {
 
 class TestNonObjectExplicit {}
 
-export const testNonObjectExplicit
-  = TestNonObjectExplicit satisfies ServiceDefinition<TestNonObjectExplicit>;
+export const testNonObjectExplicit =
+  TestNonObjectExplicit satisfies ServiceDefinition<TestNonObjectExplicit>;
 
 class TestArgumentOverrides {
   constructor(

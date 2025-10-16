@@ -12,10 +12,9 @@ export class AsyncDependency {
 export class AuthorsResolver implements Resolver {
   readonly operationName = 'authors';
 
-  constructor(
-    readonly asyncDep: AsyncDependency,
-  ) {}
+  constructor(readonly asyncDep: AsyncDependency) {}
 
+  // eslint-disable-next-line unused-imports/no-unused-vars
   resolve(args: Record<string, any>): any {
     return ['Emily Dickinson', 'Virginia Woolf'];
   }
@@ -24,6 +23,7 @@ export class AuthorsResolver implements Resolver {
 export class BooksResolver implements Resolver {
   readonly operationName = 'books';
 
+  // eslint-disable-next-line unused-imports/no-unused-vars
   resolve(args: Record<string, any>): any {
     return ['Poems', 'Mrs Dalloway'];
   }
@@ -32,9 +32,7 @@ export class BooksResolver implements Resolver {
 class RootResolver {
   private readonly factories: Map<string, ResolverFactory>;
 
-  constructor(
-    factories: ResolverFactory[],
-  ) {
+  constructor(factories: ResolverFactory[]) {
     this.factories = new Map(factories.map((factory) => [factory.operationName, factory]));
   }
 

@@ -1,4 +1,4 @@
-import { resolve, relative } from 'path';
+import { relative, resolve } from 'path';
 import { Node, SourceFile } from 'ts-morph';
 import { ContainerBuilder } from '../container';
 import { DecoratorDefinition, ServiceDefinition } from '../definitions';
@@ -20,7 +20,7 @@ export class UnknownErrorReporter implements ErrorReporter<Error> {
     return true;
   }
 
-  * report(error: Error): Iterable<string> {
+  *report(error: Error): Iterable<string> {
     yield line(`${error.name}:`, error.message);
     yield error.stack ?? '';
   }
@@ -31,7 +31,7 @@ export class InternalErrorReporter implements ErrorReporter<InternalError> {
     return error instanceof InternalError;
   }
 
-  * report(error: InternalError): Iterable<string> {
+  *report(error: InternalError): Iterable<string> {
     yield line('Internal error:', error.message);
   }
 }
@@ -41,7 +41,7 @@ export class ExtensionErrorReporter implements ErrorReporter<ExtensionError> {
     return error instanceof ExtensionError;
   }
 
-  * report(error: ExtensionError): Iterable<string> {
+  *report(error: ExtensionError): Iterable<string> {
     yield line('Extension error:', error.message);
     yield line('In extension', error.extension);
   }
@@ -52,7 +52,7 @@ export class UserErrorReporter<E extends UserError> implements ErrorReporter<E> 
     return error instanceof UserError;
   }
 
-  * report(error: E): Iterable<string> {
+  *report(error: E): Iterable<string> {
     yield line('Error:', error.message);
   }
 }
@@ -62,7 +62,7 @@ export class ConfigErrorReporter extends UserErrorReporter<ConfigError> {
     return error instanceof ConfigError;
   }
 
-  * report(error: ConfigError): Iterable<string> {
+  *report(error: ConfigError): Iterable<string> {
     yield line('Configuration error:', error.message);
 
     if (error.file) {
@@ -71,12 +71,14 @@ export class ConfigErrorReporter extends UserErrorReporter<ConfigError> {
   }
 }
 
-export class UserCodeErrorReporter<E extends UserCodeError = UserCodeError> implements ErrorReporter<E> {
+export class UserCodeErrorReporter<E extends UserCodeError = UserCodeError>
+  implements ErrorReporter<E>
+{
   supports(error: unknown): error is E {
     return error instanceof UserCodeError;
   }
 
-  * report(error: E): Iterable<string> {
+  *report(error: E): Iterable<string> {
     yield line(this.title(), error.message);
     yield builder(error.context.builder);
     yield file('Resource', error.context.resource);
@@ -114,10 +116,10 @@ export class AutowiringErrorReporter extends UserErrorReporter<AutowiringError> 
     return error instanceof AutowiringError;
   }
 
-  * report(error: AutowiringError): Iterable<string> {
+  *report(error: AutowiringError): Iterable<string> {
     yield line('Autowiring error:', error.message);
     yield builder(error.context.builder);
-    yield * definition(error.context.definition);
+    yield* definition(error.context.definition);
     yield method(error.context.method);
     yield arg(error.context.argument);
   }
@@ -128,17 +130,15 @@ export class CyclicDependencyErrorReporter implements ErrorReporter<CyclicDepend
     return error instanceof CyclicDependencyError;
   }
 
-  * report(error: CyclicDependencyError): Iterable<string> {
+  *report(error: CyclicDependencyError): Iterable<string> {
     yield 'Cyclic dependency detected:';
 
     for (const def of error.definitions) {
       yield '\n';
-      yield * definition(def);
+      yield* definition(def);
     }
   }
 }
-
-
 
 function line(...chunks: string[]): string {
   return `${chunks.join(' ')}\n`;
@@ -164,18 +164,13 @@ function node(label: string, node?: Node): string {
   return node ? line(label, `${filePath(node.getSourceFile())}:${node.getStartLineNumber()}`) : '';
 }
 
-function * definition(definition?: ServiceDefinition | DecoratorDefinition): Iterable<string> {
+function* definition(definition?: ServiceDefinition | DecoratorDefinition): Iterable<string> {
   if (!definition) {
     return;
   }
 
   if (definition instanceof DecoratorDefinition) {
-    yield line(
-      'Decorator:',
-      definition.path,
-      'exported from',
-      filePath(definition.resource),
-    );
+    yield line('Decorator:', definition.path, 'exported from', filePath(definition.resource));
 
     yield node('Defined at:', definition.node);
   } else if (definition.isForeign()) {
@@ -188,31 +183,51 @@ function * definition(definition?: ServiceDefinition | DecoratorDefinition): Ite
       filePath(definition.parent.resource),
     );
   } else {
-    yield line(
-      'Service:',
-      definition.path,
-      'exported from',
-      filePath(definition.resource),
-    );
+    yield line('Service:', definition.path, 'exported from', filePath(definition.resource));
 
     yield node('Defined at:', definition.node);
     yield node('Declaration:', definition.declaration);
   }
 }
 
-function method(type?: 'factory' | 'override' | 'decorate' | 'onCreate' | 'onFork' | 'onDestroy' | 'auto-implement'): string {
+function method(
+  type?:
+    | 'factory'
+    | 'override'
+    | 'decorate'
+    | 'onCreate'
+    | 'onFork'
+    | 'onDestroy'
+    | 'auto-implement',
+): string {
   return type ? line('While processing:', methodLabel(type)) : '';
 }
 
-function methodLabel(type: 'factory' | 'override' | 'decorate' | 'onCreate' | 'onFork' | 'onDestroy' | 'auto-implement'): string {
+function methodLabel(
+  type:
+    | 'factory'
+    | 'override'
+    | 'decorate'
+    | 'onCreate'
+    | 'onFork'
+    | 'onDestroy'
+    | 'auto-implement',
+): string {
   switch (type) {
-    case 'factory': return 'service factory';
-    case 'override': return 'service factory argument overrides';
-    case 'decorate': return 'decorate() hook';
-    case 'onCreate': return 'onCreate() hook';
-    case 'onFork': return 'onFork() hook';
-    case 'onDestroy': return 'onDestroy() hook';
-    case 'auto-implement': return 'auto-implemented factory / accessor';
+    case 'factory':
+      return 'service factory';
+    case 'override':
+      return 'service factory argument overrides';
+    case 'decorate':
+      return 'decorate() hook';
+    case 'onCreate':
+      return 'onCreate() hook';
+    case 'onFork':
+      return 'onFork() hook';
+    case 'onDestroy':
+      return 'onDestroy() hook';
+    case 'auto-implement':
+      return 'auto-implemented factory / accessor';
   }
 }
 

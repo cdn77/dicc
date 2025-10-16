@@ -1,8 +1,18 @@
 import { ServiceDefinition } from 'dicc';
 
-interface AsyncServices {}
-interface SyncServices {}
-interface MixedServices {}
+const brand = Symbol('brand');
+
+interface AsyncServices {
+  [brand]?: void;
+}
+
+interface SyncServices {
+  [brand]?: void;
+}
+
+interface MixedServices {
+  [brand]?: void;
+}
 
 export class AsyncService1 implements AsyncServices, MixedServices {
   static async create(): Promise<AsyncService1> {
@@ -33,75 +43,51 @@ export class SyncService2 implements SyncServices, MixedServices {}
 export class SyncService3 implements SyncServices, MixedServices {}
 
 export class TestInjectSyncListOfSyncServices {
-  constructor(
-    readonly value: SyncServices[],
-  ) {}
+  constructor(readonly value: SyncServices[]) {}
 }
 
 export class TestInjectSyncListOfAsyncServices {
-  constructor(
-    readonly value: AsyncServices[],
-  ) {}
+  constructor(readonly value: AsyncServices[]) {}
 }
 
 export class TestInjectSyncListOfMixedServices {
-  constructor(
-    readonly value: MixedServices[],
-  ) {}
+  constructor(readonly value: MixedServices[]) {}
 }
 
 export class TestInjectSyncIterableOfSyncServices {
-  constructor(
-    readonly value: Iterable<SyncServices>,
-  ) {}
+  constructor(readonly value: Iterable<SyncServices>) {}
 }
 
 export class TestInjectSyncIterableOfAsyncServices {
-  constructor(
-    readonly value: Iterable<AsyncServices>,
-  ) {}
+  constructor(readonly value: Iterable<AsyncServices>) {}
 }
 
 export class TestInjectSyncIterableOfMixedServices {
-  constructor(
-    readonly value: Iterable<MixedServices>,
-  ) {}
+  constructor(readonly value: Iterable<MixedServices>) {}
 }
 
 export class TestInjectAsyncListOfSyncServices {
-  constructor(
-    readonly value: Promise<SyncServices[]>,
-  ) {}
+  constructor(readonly value: Promise<SyncServices[]>) {}
 }
 
 export class TestInjectAsyncListOfAsyncServices {
-  constructor(
-    readonly value: Promise<AsyncServices[]>,
-  ) {}
+  constructor(readonly value: Promise<AsyncServices[]>) {}
 }
 
 export class TestInjectAsyncListOfMixedServices {
-  constructor(
-    readonly value: Promise<MixedServices[]>,
-  ) {}
+  constructor(readonly value: Promise<MixedServices[]>) {}
 }
 
 export class TestInjectAsyncIterableOfSyncServices {
-  constructor(
-    readonly value: AsyncIterable<SyncServices>,
-  ) {}
+  constructor(readonly value: AsyncIterable<SyncServices>) {}
 }
 
 export class TestInjectAsyncIterableOfAsyncServices {
-  constructor(
-    readonly value: AsyncIterable<AsyncServices>,
-  ) {}
+  constructor(readonly value: AsyncIterable<AsyncServices>) {}
 }
 
 export class TestInjectAsyncIterableOfMixedServices {
-  constructor(
-    readonly value: AsyncIterable<MixedServices>,
-  ) {}
+  constructor(readonly value: AsyncIterable<MixedServices>) {}
 }
 
 class Entrypoint {

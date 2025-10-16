@@ -7,24 +7,32 @@ import { CompilerExtension } from './compilerExtension';
 import { getPropertyLiteralValueIfKind, subpath, validateServiceScope } from './helpers';
 
 export class DecoratorsExtension extends CompilerExtension {
-  constructor(
-    private readonly typeHelper: TypeHelper,
-  ) {
+  constructor(private readonly typeHelper: TypeHelper) {
     super();
   }
 
-  * getSubscribedEvents(): Iterable<EventSubscription<any>> {
-    yield DeclarationNodeDiscovered.sub((evt) => this.scanNode(evt.resource, evt.path, evt.node, evt.builder));
+  *getSubscribedEvents(): Iterable<EventSubscription<any>> {
+    yield DeclarationNodeDiscovered.sub((evt) =>
+      this.scanNode(evt.resource, evt.path, evt.node, evt.builder),
+    );
   }
 
-  private scanNode(resource: SourceFile, path: string, node: DeclarationNode, builder: ContainerBuilder): void {
+  private scanNode(
+    resource: SourceFile,
+    path: string,
+    node: DeclarationNode,
+    builder: ContainerBuilder,
+  ): void {
     if (!Node.isSatisfiesExpression(node)) {
       return;
     }
 
     const typeNode = node.getTypeNode();
 
-    if (!Node.isTypeReference(typeNode) || !this.typeHelper.isDecoratorDefinition(typeNode.getTypeName().getType())) {
+    if (
+      !Node.isTypeReference(typeNode) ||
+      !this.typeHelper.isDecoratorDefinition(typeNode.getTypeName().getType())
+    ) {
       return;
     }
 
@@ -37,7 +45,13 @@ export class DecoratorsExtension extends CompilerExtension {
 
     const [typeArg] = typeNode.getTypeArguments();
     const targetType = typeArg.getType();
-    const scope = getPropertyLiteralValueIfKind(expression, 'scope', 'string', subpath(ctx, 'scope'), validateServiceScope);
+    const scope = getPropertyLiteralValueIfKind(
+      expression,
+      'scope',
+      'string',
+      subpath(ctx, 'scope'),
+      validateServiceScope,
+    );
     const decorate = this.typeHelper.resolveCallableProperty(expression, 'decorate', ctx);
     const onCreate = this.typeHelper.resolveCallableProperty(expression, 'onCreate', ctx);
     const onFork = this.typeHelper.resolveCallableProperty(expression, 'onFork', ctx);

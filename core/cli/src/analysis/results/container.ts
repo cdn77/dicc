@@ -8,7 +8,7 @@ export type Resource = {
 };
 
 export type TypeSpecifierWithAsync = TypeSpecifier & {
-  async: boolean
+  async: boolean;
 };
 
 export type Container = {
@@ -26,14 +26,18 @@ export class TypeSpecifierSet implements Iterable<TypeSpecifierWithAsync> {
   private readonly specifiers: Map<string, TypeSpecifierWithAsync> = new Map();
 
   add(specifier: TypeSpecifierWithAsync): void {
-    const key = specifier.kind === 'local'
-      ? `local:${specifier.path}`
-      : `foreign:${specifier.container.path}#${specifier.id}`;
+    const key =
+      specifier.kind === 'local'
+        ? `local:${specifier.path}`
+        : `foreign:${specifier.container.path}#${specifier.id}`;
 
     const existing = this.specifiers.get(key);
 
     if (existing) {
-      specifier.async && (existing.async = true);
+      if (specifier.async) {
+        existing.async = true;
+      }
+
       return;
     }
 
@@ -45,6 +49,6 @@ export class TypeSpecifierSet implements Iterable<TypeSpecifierWithAsync> {
   }
 
   *[Symbol.iterator](): Iterator<TypeSpecifierWithAsync> {
-    yield * this.specifiers.values();
+    yield* this.specifiers.values();
   }
 }

@@ -3,7 +3,11 @@ import { compareGeneratedContainer, ensureFileExists, generateTestContainer } fr
 
 test('Container merging', async () => {
   await it('merges containers', async () => {
-    await ensureFileExists(import.meta.url, 'generatedChildContainer.ts', generateEmptyChildContainer);
+    await ensureFileExists(
+      import.meta.url,
+      'generatedChildContainer.ts',
+      generateEmptyChildContainer,
+    );
     const path = await generateTestContainer(import.meta.url);
     await compareGeneratedContainer(path, 'ParentContainer');
     await compareGeneratedContainer(path, 'ChildContainer');

@@ -3,26 +3,39 @@ import { AbstractContainer } from './abstractContainer';
 export type Constructor<T = any> = abstract new (...args: any[]) => T;
 export type Factory<T = any> = { (...args: any[]): T };
 
-export type MaybeOptional<T, Need extends boolean>
-  = T extends undefined ? Need extends false ? T : Exclude<T, undefined> : Exclude<T, undefined>;
+export type MaybeOptional<T, Need extends boolean> = T extends undefined
+  ? Need extends false
+    ? T
+    : Exclude<T, undefined>
+  : Exclude<T, undefined>;
 export type Resolved<T> = T extends Promise<infer V> ? V : T;
 
-export type GetResult<Services extends Record<string, any>, K extends keyof Services, Need extends boolean>
-  = Services[K] extends Promise<infer T> ? Promise<MaybeOptional<T, Need>> : MaybeOptional<Services[K], Need>;
+export type GetResult<
+  Services extends Record<string, any>,
+  K extends keyof Services,
+  Need extends boolean,
+> =
+  Services[K] extends Promise<infer T>
+    ? Promise<MaybeOptional<T, Need>>
+    : MaybeOptional<Services[K], Need>;
 
-export type FindResult<Services extends Record<string, any>, K extends keyof Services>
-  = Extract<Services[K], Promise<any>> extends never
+export type FindResult<Services extends Record<string, any>, K extends keyof Services> =
+  Extract<Services[K], Promise<any>> extends never
     ? Exclude<Services[K], undefined>[]
     : Promise<Exclude<Resolved<Services[K]>, undefined>[]>;
 
-export type IterateResult<Services extends Record<string, any>, K extends keyof Services>
-  = Extract<Services[K], Promise<any>> extends never
+export type IterateResult<Services extends Record<string, any>, K extends keyof Services> =
+  Extract<Services[K], Promise<any>> extends never
     ? Iterable<Exclude<Services[K], undefined>>
     : AsyncIterable<Exclude<Resolved<Services[K]>, undefined>>;
 
 export type ServiceScope = 'global' | 'local' | 'private';
 export type ServiceHook<T> = (service: T, ...args: any[]) => Promise<void> | void;
-export type ServiceForkHook<T> = (callback: ServiceForkHookCallback<T, unknown>, service: T, ...args: any[]) => Promise<unknown> | unknown;
+export type ServiceForkHook<T> = (
+  callback: ServiceForkHookCallback<T, unknown>,
+  service: T,
+  ...args: any[]
+) => Promise<unknown> | unknown;
 export type ServiceForkHookCallback<T, R> = (localService?: T | undefined) => Promise<R> | R;
 
 export type ServiceDefinitionOptions<T = any> = {
@@ -54,33 +67,53 @@ export interface ScopedRunner {
 }
 
 export type ServiceType<D> =
-  D extends Factory<Promise<infer T> | infer T> ? T
-  : D extends { factory: Factory<Promise<infer T> | infer T> } ? T
-  : D extends { create: Factory<Promise<infer T> | infer T> } ? T
-  : D extends ServiceDefinition<infer T> ? T
-  : never;
+  D extends Factory<Promise<infer T> | infer T>
+    ? T
+    : D extends { factory: Factory<Promise<infer T> | infer T> }
+      ? T
+      : D extends { create: Factory<Promise<infer T> | infer T> }
+        ? T
+        : D extends ServiceDefinition<infer T>
+          ? T
+          : never;
 
 export const PublicServices = Symbol('PublicServices');
 export const DynamicServices = Symbol('DynamicServices');
 
-export type ForeignServiceType<C extends AbstractContainer<any>, Id extends string> =
-  C extends { [PublicServices]?: infer Map }
-    ? Id extends keyof Map ? Resolved<Map[Id]> : never
-    : never;
+export type ForeignServiceType<C extends AbstractContainer<any>, Id extends string> = C extends {
+  [PublicServices]?: infer Map;
+}
+  ? Id extends keyof Map
+    ? Resolved<Map[Id]>
+    : never
+  : never;
 
-export type CompiledServiceHook<T, Services extends Record<string, any> = {}> = {
+export type CompiledServiceHook<T, Services extends Record<string, any> = Record<string, never>> = {
   (service: T, container: AbstractContainer<Services>): void;
 };
 
-export type CompiledAsyncServiceHook<T, Services extends Record<string, any> = {}> = {
+export type CompiledAsyncServiceHook<
+  T,
+  Services extends Record<string, any> = Record<string, never>,
+> = {
   (service: T, container: AbstractContainer<Services>): Promise<void> | void;
 };
 
-export type CompiledServiceForkHook<T, Services extends Record<string, any> = {}> = {
-  (callback: ServiceForkHookCallback<T, unknown>, service: T, container: AbstractContainer<Services>): Promise<unknown> | unknown;
+export type CompiledServiceForkHook<
+  T,
+  Services extends Record<string, any> = Record<string, never>,
+> = {
+  (
+    callback: ServiceForkHookCallback<T, unknown>,
+    service: T,
+    container: AbstractContainer<Services>,
+  ): Promise<unknown> | unknown;
 };
 
-export type CompiledServiceDefinitionOptions<T = any, Services extends Record<string, any> = {}> = {
+export type CompiledServiceDefinitionOptions<
+  T = any,
+  Services extends Record<string, any> = Record<string, never>,
+> = {
   aliases?: string[];
   container?: boolean;
   scope?: ServiceScope;
@@ -88,38 +121,51 @@ export type CompiledServiceDefinitionOptions<T = any, Services extends Record<st
   onDestroy?: CompiledAsyncServiceHook<T, Services>;
 };
 
-export type CompiledFactory<T, Services extends Record<string, any> = {}> = {
+export type CompiledFactory<T, Services extends Record<string, any> = Record<string, never>> = {
   (container: AbstractContainer<Services>): T;
 };
 
-export type CompiledAsyncServiceDefinition<T = any, Services extends Record<string, any> = {}>
-  = CompiledServiceDefinitionOptions<NonNullable<T>, Services> & {
-    factory: CompiledFactory<Promise<T> | T, Services>;
-    async: true;
-    onCreate?: CompiledAsyncServiceHook<NonNullable<T>, Services>;
-  };
+export type CompiledAsyncServiceDefinition<
+  T = any,
+  Services extends Record<string, any> = Record<string, never>,
+> = CompiledServiceDefinitionOptions<NonNullable<T>, Services> & {
+  factory: CompiledFactory<Promise<T> | T, Services>;
+  async: true;
+  onCreate?: CompiledAsyncServiceHook<NonNullable<T>, Services>;
+};
 
-export type CompiledSyncServiceDefinition<T = any, Services extends Record<string, any> = {}>
-  = CompiledServiceDefinitionOptions<NonNullable<T>, Services> & {
-    factory: CompiledFactory<T, Services>;
-    async?: false;
-    onCreate?: CompiledServiceHook<NonNullable<T>, Services>;
-  };
+export type CompiledSyncServiceDefinition<
+  T = any,
+  Services extends Record<string, any> = Record<string, never>,
+> = CompiledServiceDefinitionOptions<NonNullable<T>, Services> & {
+  factory: CompiledFactory<T, Services>;
+  async?: false;
+  onCreate?: CompiledServiceHook<NonNullable<T>, Services>;
+};
 
-export type CompiledDynamicServiceDefinition<T = any, Services extends Record<string, any> = {}>
-  = CompiledServiceDefinitionOptions<NonNullable<T>, Services> & {
-    factory: undefined;
-    async?: boolean;
-    onCreate?: CompiledAsyncServiceHook<NonNullable<T>, Services>;
-  };
+export type CompiledDynamicServiceDefinition<
+  T = any,
+  Services extends Record<string, any> = Record<string, never>,
+> = CompiledServiceDefinitionOptions<NonNullable<T>, Services> & {
+  factory: undefined;
+  async?: boolean;
+  onCreate?: CompiledAsyncServiceHook<NonNullable<T>, Services>;
+};
 
-export type CompiledServiceDefinition<T = any, Services extends Record<string, any> = {}> =
+export type CompiledServiceDefinition<
+  T = any,
+  Services extends Record<string, any> = Record<string, never>,
+> =
   | CompiledAsyncServiceDefinition<T, Services>
   | CompiledSyncServiceDefinition<T, Services>
   | CompiledDynamicServiceDefinition<T, Services>;
 
-export type CompiledServiceDefinitionMap<Services extends Record<string, any> = {}> = {
+export type CompiledServiceDefinitionMap<
+  Services extends Record<string, any> = Record<string, never>,
+> = {
   [Id in keyof Services]?: Services[Id] extends Promise<infer S>
     ? CompiledAsyncServiceDefinition<S, Services>
-    : CompiledSyncServiceDefinition<Services[Id], Services> | CompiledDynamicServiceDefinition<Services[Id], Services>;
+    :
+        | CompiledSyncServiceDefinition<Services[Id], Services>
+        | CompiledDynamicServiceDefinition<Services[Id], Services>;
 };

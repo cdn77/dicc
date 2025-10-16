@@ -12,9 +12,8 @@ export abstract class CompilerExtension implements EventSubscriber {
   static readonly references?: CompilerExtensionReferences;
   static readonly configSchema?: z.ZodType;
 
-  * getSubscribedEvents(): Iterable<EventSubscription<any>> {
-  }
+  *getSubscribedEvents(): Iterable<EventSubscription<any>> {}
 
-  loadResources(builder: ContainerBuilder, enqueue: EnqueueResourcesCb): void {
-  }
+  // eslint-disable-next-line unused-imports/no-unused-vars
+  loadResources(builder: ContainerBuilder, enqueue: EnqueueResourcesCb): void {}
 }

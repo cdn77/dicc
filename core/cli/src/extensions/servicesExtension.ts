@@ -13,14 +13,14 @@ import {
 import { ContainerBuilder, ServiceAdded } from '../container';
 import {
   ArgumentOverride,
-  CallableDefinition,
-  PromiseType,
-  SingleType,
-  ExplicitServiceDefinitionOptions,
-  ServiceDefinition,
   AutoImplementedMethod,
-  OverrideDefinition,
+  CallableDefinition,
+  ExplicitServiceDefinitionOptions,
   LocalServiceDefinition,
+  OverrideDefinition,
+  PromiseType,
+  ServiceDefinition,
+  SingleType,
 } from '../definitions';
 import { DefinitionError, UserCodeContext } from '../errors';
 import { EventSubscription } from '../events';
@@ -31,18 +31,23 @@ import { getPropertyLiteralValueIfKind, subpath, validateServiceScope } from './
 export class ServicesExtension extends CompilerExtension {
   private readonly pendingAutoImplements: Map<Type, PendingAutoImplement> = new Map();
 
-  constructor(
-    private readonly typeHelper: TypeHelper,
-  ) {
+  constructor(private readonly typeHelper: TypeHelper) {
     super();
   }
 
-  * getSubscribedEvents(): Iterable<EventSubscription<any>> {
-    yield DeclarationNodeDiscovered.sub((evt) => this.scanNode(evt.resource, evt.path, evt.node, evt.builder));
+  *getSubscribedEvents(): Iterable<EventSubscription<any>> {
+    yield DeclarationNodeDiscovered.sub((evt) =>
+      this.scanNode(evt.resource, evt.path, evt.node, evt.builder),
+    );
     yield ServiceAdded.sub((evt) => this.tryAutoImplement(evt.service));
   }
 
-  private scanNode(resource: SourceFile, path: string, node: DeclarationNode, builder: ContainerBuilder): void {
+  private scanNode(
+    resource: SourceFile,
+    path: string,
+    node: DeclarationNode,
+    builder: ContainerBuilder,
+  ): void {
     const ctx: UserCodeContext = { builder, resource, path, node };
 
     if (Node.isClassDeclaration(node)) {
@@ -87,10 +92,7 @@ export class ServicesExtension extends CompilerExtension {
     });
   }
 
-  private scanExpression(
-    node: FunctionDeclaration | Expression,
-    ctx: UserCodeContext,
-  ): void {
+  private scanExpression(node: FunctionDeclaration | Expression, ctx: UserCodeContext): void {
     const nodeIsExpression = Node.isExpression(node);
 
     if (!nodeIsExpression && node.getTypeParameters().length) {
@@ -115,23 +117,27 @@ export class ServicesExtension extends CompilerExtension {
       rtn = rtn.value;
     }
 
-    const [aliases, declaration] = rtn instanceof SingleType
-      ? [this.typeHelper.resolveAliases(rtn.type), this.typeHelper.resolveDeclaration(rtn.type)]
-      : [];
+    const [aliases, declaration] =
+      rtn instanceof SingleType
+        ? [this.typeHelper.resolveAliases(rtn.type), this.typeHelper.resolveDeclaration(rtn.type)]
+        : [];
 
     ctx.builder.addImplicitDefinition(ctx.resource, ctx.path, rtn.type, {
       aliases,
       factory,
       node,
       declaration,
-      container: this.typeHelper.isContainer(rtn.type, ...aliases ?? []),
+      container: this.typeHelper.isContainer(rtn.type, ...(aliases ?? [])),
     });
   }
 
   private scanSatisfiesExpression(node: SatisfiesExpression, ctx: UserCodeContext): void {
     const typeNode = node.getTypeNode();
 
-    if (!Node.isTypeReference(typeNode) || !this.typeHelper.isServiceDefinition(typeNode.getTypeName().getType())) {
+    if (
+      !Node.isTypeReference(typeNode) ||
+      !this.typeHelper.isServiceDefinition(typeNode.getTypeName().getType())
+    ) {
       return;
     }
 
@@ -141,7 +147,10 @@ export class ServicesExtension extends CompilerExtension {
       ? this.resolveExplicitAliases(aliasArg)
       : this.typeHelper.resolveAliases(type);
     const expression = node.getExpression();
-    const [factoryType, options] = this.resolveExplicitDefinition(expression, { ...ctx, node: expression });
+    const [factoryType, options] = this.resolveExplicitDefinition(expression, {
+      ...ctx,
+      node: expression,
+    });
     let declaration = factoryType ? this.typeHelper.resolveDeclaration(factoryType) : undefined;
     const factoryCtx = options.object ? subpath(ctx, 'factory') : ctx;
     const factory = declaration
@@ -151,9 +160,10 @@ export class ServicesExtension extends CompilerExtension {
         : undefined;
 
     if (!declaration && factory && factory.returnType && factory.returnType) {
-      const returnType = factory.returnType instanceof PromiseType
-        ? factory.returnType.value.type
-        : factory.returnType.type;
+      const returnType =
+        factory.returnType instanceof PromiseType
+          ? factory.returnType.value.type
+          : factory.returnType.type;
       declaration = this.typeHelper.resolveDeclaration(returnType);
     }
 
@@ -170,12 +180,13 @@ export class ServicesExtension extends CompilerExtension {
   private resolveExplicitAliases(aliases: TypeNode): Type[] {
     const type = aliases.getType();
 
-    return type.isUnknown() ? []
-      : type.isIntersection() ? type.getIntersectionTypes()
-        : [type];
+    return type.isUnknown() ? [] : type.isIntersection() ? type.getIntersectionTypes() : [type];
   }
 
-  private resolveExplicitDefinition(node: Expression, ctx: UserCodeContext): [Type | undefined, ExplicitServiceDefinitionOptions] {
+  private resolveExplicitDefinition(
+    node: Expression,
+    ctx: UserCodeContext,
+  ): [Type | undefined, ExplicitServiceDefinitionOptions] {
     if (!Node.isObjectLiteralExpression(node)) {
       const type = node.getType();
       return [type.isUndefined() ? undefined : type, {}];
@@ -187,8 +198,17 @@ export class ServicesExtension extends CompilerExtension {
       factoryType = undefined;
     }
 
-    const args = this.resolveArgumentOverrides(getPropertyLiteralValueIfKind(node, 'args', 'object'), subpath(ctx, 'args'));
-    const scope = getPropertyLiteralValueIfKind(node, 'scope', 'string', subpath(ctx, 'scope'), validateServiceScope);
+    const args = this.resolveArgumentOverrides(
+      getPropertyLiteralValueIfKind(node, 'args', 'object'),
+      subpath(ctx, 'args'),
+    );
+    const scope = getPropertyLiteralValueIfKind(
+      node,
+      'scope',
+      'string',
+      subpath(ctx, 'scope'),
+      validateServiceScope,
+    );
     const anonymous = getPropertyLiteralValueIfKind(node, 'anonymous', 'boolean');
     const onCreate = this.typeHelper.resolveCallableProperty(node, 'onCreate', ctx);
     const onFork = this.typeHelper.resolveCallableProperty(node, 'onFork', ctx);
@@ -208,28 +228,40 @@ export class ServicesExtension extends CompilerExtension {
 
     for (const prop of args.getProperties()) {
       if (!Node.isPropertyNamed(prop)) {
-        throw new DefinitionError(`Invalid service arguments, not a named property`, { ...ctx, node: prop });
+        throw new DefinitionError(`Invalid service arguments, not a named property`, {
+          ...ctx,
+          node: prop,
+        });
       }
 
       const type = prop.getType();
       const name = prop.getName();
-      const signature = this.typeHelper.resolveCallSignature(type, subpath({ ...ctx, node: prop }, name));
+      const signature = this.typeHelper.resolveCallSignature(
+        type,
+        subpath({ ...ctx, node: prop }, name),
+      );
       const arg = /^\d+$/.test(name) ? parseInt(name, 10) : name;
 
       if (signature) {
-        map.set(arg, new CallableDefinition(
-          ctx.resource,
-          `${ctx.path}.${name}`,
-          this.typeHelper.resolveArguments(signature, prop),
-          ...this.typeHelper.resolveReturnType(signature),
-          prop,
-        ));
+        map.set(
+          arg,
+          new CallableDefinition(
+            ctx.resource,
+            `${ctx.path}.${name}`,
+            this.typeHelper.resolveArguments(signature, prop),
+            ...this.typeHelper.resolveReturnType(signature),
+            prop,
+          ),
+        );
       } else {
-        map.set(arg, new OverrideDefinition(
-          ctx.resource,
-          `${ctx.path}.${name}`,
-          this.typeHelper.resolveValueType(type, prop),
-        ));
+        map.set(
+          arg,
+          new OverrideDefinition(
+            ctx.resource,
+            `${ctx.path}.${name}`,
+            this.typeHelper.resolveValueType(type, prop),
+          ),
+        );
       }
     }
 
@@ -257,9 +289,9 @@ export class ServicesExtension extends CompilerExtension {
     }
 
     if (
-      !definition.declaration
-      || (definition.factory && definition.factory.method !== 'constructor')
-      || definition.autoImplement
+      !definition.declaration ||
+      (definition.factory && definition.factory.method !== 'constructor') ||
+      definition.autoImplement
     ) {
       return;
     }
@@ -275,9 +307,10 @@ export class ServicesExtension extends CompilerExtension {
       return;
     }
 
-    const targetType = method.returnType instanceof PromiseType
-      ? method.returnType.value.type
-      : method.returnType.type;
+    const targetType =
+      method.returnType instanceof PromiseType
+        ? method.returnType.value.type
+        : method.returnType.type;
 
     const [service, nonUnique] = definition.builder.findByType(targetType);
 

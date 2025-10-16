@@ -4,9 +4,7 @@ export interface Resolver {
 }
 
 export abstract class ResolverFactory {
-  constructor(
-    readonly operationName: string,
-  ) {}
+  constructor(readonly operationName: string) {}
 
   abstract create(): Resolver;
 }

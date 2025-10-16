@@ -1,7 +1,7 @@
 import { Container, TypeSpecifierSet, TypeSpecifierWithAsync } from '../analysis';
 import { getFirst, sortMap } from '../utils';
 import { ServiceCompiler } from './serviceCompiler';
-import { formatType, compareKeys, compareResources, compareTypes } from './utils';
+import { compareKeys, compareResources, compareTypes, formatType } from './utils';
 import { WriterFactory } from './writerFactory';
 
 const diccImports = [
@@ -53,28 +53,42 @@ export class ContainerCompiler {
 
   private compileTypeMaps(container: Container): string {
     const writer = this.writerFactory.create();
+
     writer.write('interface PublicServices {');
     writer.indent(() => writer.write(this.compileTypeMap(container.publicTypes)));
-    writer.write('}\n\ninterface DynamicServices {');
-    if (container.dynamicTypes.size) {
-      writer.indent(() => writer.write(this.compileTypeMap(container.dynamicTypes)));
-    }
-    writer.write('}\n\ninterface AnonymousServices {');
-    if (container.anonymousTypes.size) {
-      writer.indent(() => writer.write(this.compileTypeMap(container.anonymousTypes)));
-    }
     writer.write('}\n');
+
+    if (container.dynamicTypes.size) {
+      writer.write('\ninterface DynamicServices {');
+      writer.indent(() => writer.write(this.compileTypeMap(container.dynamicTypes)));
+      writer.write('}\n');
+    }
+
+    if (container.anonymousTypes.size) {
+      writer.write('\ninterface AnonymousServices {');
+      writer.indent(() => writer.write(this.compileTypeMap(container.anonymousTypes)));
+      writer.write('}\n');
+    }
+
     return writer.toString();
   }
 
   private compileContainerClass(container: Container): string {
     const writer = this.writerFactory.create();
-    const declaration = container.className === 'default' ? 'default class' : `class ${container.className}`;
-    writer.write(`export ${declaration} extends Container<PublicServices, DynamicServices, AnonymousServices> {`);
+    const declaration =
+      container.className === 'default' ? 'default class' : `class ${container.className}`;
+    const dynamic = container.dynamicTypes.size ? 'DynamicServices' : 'object';
+    const anonymous = container.anonymousTypes.size ? 'AnonymousServices' : 'object';
+
+    writer.write(
+      `export ${declaration} extends Container<PublicServices, ${dynamic}, ${anonymous}> {`,
+    );
     writer.indent(() => {
       writer.write('constructor() {');
       writer.indent(() => {
-        writer.write(`super(${this.serviceCompiler.compileDefinitions(container.services, container.resources)});`);
+        writer.write(
+          `super(${this.serviceCompiler.compileDefinitions(container.services, container.resources)});`,
+        );
       });
       writer.write('}');
     });
@@ -90,7 +104,10 @@ export class ContainerCompiler {
       const types = (typeOrTypes instanceof TypeSpecifierSet ? [...typeOrTypes] : [typeOrTypes])
         .sort(compareTypes)
         .map((type) => {
-          type.async && (async = true);
+          if (type.async) {
+            async = true;
+          }
+
           return formatType(type);
         });
 
@@ -102,10 +119,17 @@ export class ContainerCompiler {
       }
 
       writer.write(`'${alias}':${pre.trimEnd()}`);
-      writer.indent(() => writer.write(
-        types.map((type, i) => `| ${type}${i + 1 >= types.length && !post ? ';' : ''}`).join('\n'),
-      ));
-      post && writer.write(`${post};\n`);
+      writer.indent(() =>
+        writer.write(
+          types
+            .map((type, i) => `| ${type}${i + 1 >= types.length && !post ? ';' : ''}`)
+            .join('\n'),
+        ),
+      );
+
+      if (post) {
+        writer.write(`${post};\n`);
+      }
     }
 
     return writer.toString();

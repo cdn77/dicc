@@ -9,7 +9,7 @@
     "ioc",
     "inversion of control"
   ],
-  "version": "1.0.0-rc.8",
+  "version": "1.0.0-rc.9",
   "license": "MIT",
   "author": {
     "name": "Dan Kadera",
@@ -19,31 +19,46 @@
   "homepage": "https://github.com/cdn77/dicc",
   "repository": {
     "type": "git",
-    "url": "https://github.com/cdn77/dicc.git",
+    "url": "git+https://github.com/cdn77/dicc.git",
     "directory": "core/cli"
   },
   "files": [
     "dist"
   ],
   "engines": {
-    "node": ">=18"
+    "node": ">=22",
+    "pnpm": ">=10"
   },
+  "type": "commonjs",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "bin": {
     "dicc": "dist/cli/dicc.js"
   },
+  "scripts": {
+    "compile": "dist/cli/dicc.js",
+    "eslint": "eslint .",
+    "eslint:fix": "eslint --fix .",
+    "prettier": "prettier --check .",
+    "prettier:fix": "prettier --write .",
+    "lint": "pnpm run '/^(eslint|prettier)$/'",
+    "format": "pnpm run eslint:fix && pnpm run prettier:fix",
+    "build": "rm -rf dist && tsc && chmod +x dist/cli/dicc.js",
+    "test": "node --test 'tests/*/test.mjs'",
+    "prepack": "cp ../../README.md ./",
+    "publint": "publint"
+  },
   "dependencies": {
     "@debugr/console": "^3.0.0-rc.10",
     "@debugr/core": "^3.0.0-rc.13",
-    "dicc": "^1.0.0-rc.1",
-    "ts-morph": "^24.0.0",
-    "typescript": "^5.6.3",
-    "yaml": "^2.6.0",
-    "zod": "^3.23.8"
+    "dicc": "workspace:",
+    "ts-morph": "^27.0.2",
+    "typescript": "catalog:",
+    "yaml": "^2.8.1",
+    "zod": "^4.1.12"
   },
   "peerDependencies": {
-    "ts-node": "^10.9.2"
+    "ts-node": "catalog:"
   },
   "peerDependenciesMeta": {
     "ts-node": {
@@ -51,9 +66,20 @@
     }
   },
   "devDependencies": {
-    "@tsconfig/node18": "^18.2.4",
-    "@types/node": "^18.19.56",
-    "is-published": "^0.2.0",
-    "ts-node": "^10.9.2"
+    "@eslint/compat": "catalog:",
+    "@eslint/js": "catalog:",
+    "@tsconfig/node22": "catalog:",
+    "@types/node": "catalog:",
+    "eslint": "catalog:",
+    "eslint-config-prettier": "catalog:",
+    "eslint-plugin-simple-import-sort": "catalog:",
+    "eslint-plugin-unused-imports": "catalog:",
+    "globals": "catalog:",
+    "prettier": "catalog:",
+    "publint": "catalog:",
+    "ts-node": "catalog:",
+    "tsdown": "catalog:",
+    "typescript": "catalog:",
+    "typescript-eslint": "catalog:"
   }
 }

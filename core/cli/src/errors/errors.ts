@@ -4,7 +4,10 @@ import { ContainerContext, UserCodeContext } from './types';
 export class InternalError extends Error {}
 
 export class ExtensionError extends InternalError {
-  constructor(message: string, readonly extension: string) {
+  constructor(
+    message: string,
+    readonly extension: string,
+  ) {
     super(message);
   }
 }
@@ -12,13 +15,19 @@ export class ExtensionError extends InternalError {
 export class UserError extends Error {}
 
 export class ConfigError extends UserError {
-  constructor(message: string, readonly file?: string) {
+  constructor(
+    message: string,
+    readonly file?: string,
+  ) {
     super(message);
   }
 }
 
 export class UserCodeError extends UserError {
-  constructor(message: string, readonly context: UserCodeContext) {
+  constructor(
+    message: string,
+    readonly context: UserCodeContext,
+  ) {
     super(message);
   }
 }
@@ -27,7 +36,10 @@ export class UnsupportedError extends UserCodeError {}
 export class DefinitionError extends UserCodeError {}
 
 export class AutowiringError extends UserError {
-  constructor(message: string, readonly context: ContainerContext) {
+  constructor(
+    message: string,
+    readonly context: ContainerContext,
+  ) {
     super(message);
   }
 }

@@ -7,9 +7,7 @@ interface AliasInterface {
 }
 
 export class TestSingleDependency implements AliasInterface {
-  constructor(
-    readonly dependency: TestNoDependencies,
-  ) {}
+  constructor(readonly dependency: TestNoDependencies) {}
 
   sayHello() {
     console.log('Hello!');
@@ -40,9 +38,7 @@ export class AnotherWayToSayBye implements AnotherAlias {
 }
 
 export class TestListDependency {
-  constructor(
-    readonly services: AnotherAlias[],
-  ) {}
+  constructor(readonly services: AnotherAlias[]) {}
 }
 
 export interface DynamicServiceOfSomeKind {
@@ -62,9 +58,7 @@ export class TestFactoryMethod {
     return new TestFactoryMethod(dependency);
   }
 
-  private constructor(
-    readonly dependency: TestListDependency,
-  ) {}
+  private constructor(readonly dependency: TestListDependency) {}
 }
 
 export class TestAsyncFactoryMethod {
@@ -72,15 +66,11 @@ export class TestAsyncFactoryMethod {
     return new TestAsyncFactoryMethod(dependency);
   }
 
-  private constructor(
-    readonly dependency: TestListDependency,
-  ) {}
+  private constructor(readonly dependency: TestListDependency) {}
 }
 
 export class TestAsyncDependency {
-  constructor(
-    readonly dependency: TestAsyncFactoryMethod,
-  ) {}
+  constructor(readonly dependency: TestAsyncFactoryMethod) {}
 }
 
 class TestTupleInjection {
@@ -104,9 +94,7 @@ function testTupleInjectionFactory<C extends new (...args: any[]) => any>(
 export const testTupleInjection = testTupleInjectionFactory(TestTupleInjection);
 
 class Entrypoint {
-  constructor(
-    readonly testTupleInjection: TestTupleInjection,
-  ) {}
+  constructor(readonly testTupleInjection: TestTupleInjection) {}
 }
 
 export const entrypoint = {

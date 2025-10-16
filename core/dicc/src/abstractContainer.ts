@@ -12,13 +12,12 @@ import {
   ScopedRunner,
   ServiceScope,
 } from './types';
-import {
-  createAsyncIterator,
-  createIterator,
-  isPromiseLike,
-} from './utils';
+import { createAsyncIterator, createIterator, isPromiseLike } from './utils';
 
-export abstract class AbstractContainer<Services extends Record<string, any> = {}> implements ScopedRunner {
+export abstract class AbstractContainer<
+  Services extends Record<string, any> = Record<string, never>,
+> implements ScopedRunner
+{
   private readonly definitions: Map<string, CompiledServiceDefinition<any, Services>> = new Map();
   private readonly aliases: Map<string, string[]> = new Map();
   private readonly globalServices: ServiceStore = new ServiceStore();
@@ -31,7 +30,10 @@ export abstract class AbstractContainer<Services extends Record<string, any> = {
   }
 
   get<Id extends keyof Services>(id: Id): GetResult<Services, Id, true>;
-  get<Id extends keyof Services, Need extends boolean>(id: Id, need: Need): GetResult<Services, Id, Need>;
+  get<Id extends keyof Services, Need extends boolean>(
+    id: Id,
+    need: Need,
+  ): GetResult<Services, Id, Need>;
   get(id: string, need: boolean = true): any {
     return this.getOrCreate(this.resolve(id), need);
   }
@@ -42,8 +44,9 @@ export abstract class AbstractContainer<Services extends Record<string, any> = {
     const async = ids.some((id) => this.definitions.get(id)?.async);
 
     return async
-      ? Promise.all(ids.map(async (id) => this.getOrCreate(id, false)))
-        .then((services) => services.filter((service) => service !== undefined))
+      ? Promise.all(ids.map(async (id) => this.getOrCreate(id, false))).then((services) =>
+          services.filter((service) => service !== undefined),
+        )
       : ids.map((id) => this.getOrCreate(id, false)).filter((service) => service !== undefined);
   }
 
@@ -76,40 +79,47 @@ export abstract class AbstractContainer<Services extends Record<string, any> = {
     }
 
     if (definition.async) {
-      const servicePromise = (isPromiseLike(service) ? service : Promise.resolve(service))
-        .then(async (instance) => {
-          definition.onCreate && await definition.onCreate(instance, this);
+      const servicePromise = (isPromiseLike(service) ? service : Promise.resolve(service)).then(
+        async (instance) => {
+          await definition.onCreate?.(instance, this);
           return instance;
-        });
+        },
+      );
 
       store.set(id, servicePromise);
       return servicePromise;
     } else {
       store.set(id, service);
-      definition.onCreate && definition.onCreate(service, this);
+      definition.onCreate?.(service, this);
     }
   }
 
   async run<R>(cb: () => R | Promise<R>): Promise<R> {
     const parent = this.currentStore;
     const store = new ServiceStore(parent);
-    const chain = this.forkHooks.reduceRight((next, [id, hook]) => {
-      return async () => {
-        const callback = async (localService?: any) => {
-          localService && store.set(id, localService);
-          return next();
-        };
+    const chain = this.forkHooks.reduceRight(
+      (next, [id, hook]) => {
+        return async () => {
+          const callback = async (localService?: any) => {
+            if (localService) {
+              store.set(id, localService);
+            }
 
-        return hook(callback, await this.get(id), this);
-      };
-    }, (async () => this.localServices.run(store, cb)) as () => Promise<any>);
+            return next();
+          };
+
+          return hook(callback, await this.get(id), this);
+        };
+      },
+      (async () => this.localServices.run(store, cb)) as () => Promise<any>,
+    );
 
     try {
       return await chain();
     } finally {
       for (const [id, service] of store) {
         const definition = this.definitions.get(id);
-        definition?.onDestroy && await definition.onDestroy(await service, this);
+        await definition?.onDestroy?.(await service, this);
         store.delete(id);
       }
     }
@@ -117,12 +127,14 @@ export abstract class AbstractContainer<Services extends Record<string, any> = {
 
   async reset(): Promise<void> {
     if (this.currentStore !== this.globalServices) {
-      throw new Error(`The container can only be reset from the global scope, this call is running inside an async local scope`);
+      throw new Error(
+        `The container can only be reset from the global scope, this call is running inside an async local scope`,
+      );
     }
 
     for (const [id, definition] of this.definitions) {
       if (this.globalServices.hasOwn(id)) {
-        definition.onDestroy && await definition.onDestroy(this.globalServices.get(id), this);
+        await definition.onDestroy?.(this.globalServices.get(id), this);
         this.globalServices.delete(id);
       }
     }
@@ -132,7 +144,7 @@ export abstract class AbstractContainer<Services extends Record<string, any> = {
 
   private importDefinitions(definitions: CompiledServiceDefinitionMap<Services>): void {
     for (const [id, definition] of Object.entries(definitions)) {
-      this.definitions.set(id, definition)
+      this.definitions.set(id, definition);
       this.aliases.set(id, [id]);
 
       if (definition.onFork) {
@@ -140,8 +152,13 @@ export abstract class AbstractContainer<Services extends Record<string, any> = {
       }
 
       for (const alias of definition.aliases ?? []) {
-        this.aliases.has(alias) || this.aliases.set(alias, []);
-        this.aliases.get(alias)!.push(id);
+        let ids = this.aliases.get(alias);
+
+        if (!ids) {
+          this.aliases.set(alias, (ids = []));
+        }
+
+        ids.push(id);
       }
     }
   }
@@ -179,7 +196,9 @@ export abstract class AbstractContainer<Services extends Record<string, any> = {
       throw new Error(`Cannot create local service '${id}' in global scope`);
     } else if (definition.scope !== 'private') {
       if (this.creating.has(id)) {
-        throw new Error(`Service '${id}' is already being created, is there perhaps a cyclic dependency?`);
+        throw new Error(
+          `Service '${id}' is already being created, is there perhaps a cyclic dependency?`,
+        );
       }
 
       this.creating.add(id);
@@ -190,10 +209,18 @@ export abstract class AbstractContainer<Services extends Record<string, any> = {
       : this.createInstanceSync(id, definition, need);
   }
 
-  private createInstanceSync<T>(id: string, definition: CompiledSyncServiceDefinition<T, Services>, need: boolean = true): T | undefined {
+  private createInstanceSync<T>(
+    id: string,
+    definition: CompiledSyncServiceDefinition<T, Services>,
+    need: boolean = true,
+  ): T | undefined {
     const service = definition.factory(this);
     this.getStore(definition.scope)?.set(id, service);
-    service && definition.onCreate && definition.onCreate(service, this);
+
+    if (service && definition.onCreate) {
+      definition.onCreate(service, this);
+    }
+
     this.creating.delete(id);
 
     if (!service && need) {
@@ -203,11 +230,18 @@ export abstract class AbstractContainer<Services extends Record<string, any> = {
     return service;
   }
 
-  private createInstanceAsync<T>(id: string, definition: CompiledAsyncServiceDefinition<T, Services>, need: boolean = true): Promise<T | undefined> {
-    const servicePromise = Promise.resolve()       // needed so that definition.factory()
-      .then(async () => definition.factory(this))  // is never called synchronously
+  private createInstanceAsync<T>(
+    id: string,
+    definition: CompiledAsyncServiceDefinition<T, Services>,
+    need: boolean = true,
+  ): Promise<T | undefined> {
+    const servicePromise = Promise.resolve() // needed so that definition.factory()
+      .then(async () => definition.factory(this)) // is never called synchronously
       .then(async (service) => {
-        service && definition.onCreate && await definition.onCreate(service, this);
+        if (service && definition.onCreate) {
+          await definition.onCreate(service, this);
+        }
+
         this.creating.delete(id);
 
         if (!service && need) {

@@ -1,5 +1,5 @@
 import { ServiceDefinition } from 'dicc';
-import { DynamicChildService, ImplicitChildService, ChildPublicService } from './common';
+import { ChildPublicService, DynamicChildService, ImplicitChildService } from './common';
 
 export { DynamicChildService, ImplicitChildService };
 

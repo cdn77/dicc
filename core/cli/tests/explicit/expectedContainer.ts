@@ -10,8 +10,6 @@ interface PublicServices {
   'testWithOverriddenAlias': ServiceType<typeof definitions0.testWithOverriddenAlias>;
 }
 
-interface DynamicServices {}
-
 interface AnonymousServices {
   '#AnAlias0':
     | ServiceType<typeof definitions0.testWithExplicitAlias>
@@ -20,7 +18,7 @@ interface AnonymousServices {
   '#TestWithExplicitAlias0.0': ServiceType<typeof definitions0.testWithExplicitAlias>;
 }
 
-export class TestContainer extends Container<PublicServices, DynamicServices, AnonymousServices> {
+export class TestContainer extends Container<PublicServices, object, AnonymousServices> {
   constructor() {
     super({
       'testAliasInjection': {

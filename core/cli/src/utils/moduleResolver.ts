@@ -3,9 +3,7 @@ import { Project, SourceFile, ts } from 'ts-morph';
 import { InternalError } from '../errors';
 
 export class ModuleResolver {
-  constructor(
-    private readonly project: Project,
-  ) {}
+  constructor(private readonly project: Project) {}
 
   resolve(module: string, resolveFrom: string = 'index.ts'): SourceFile {
     const fs = this.project.getFileSystem();

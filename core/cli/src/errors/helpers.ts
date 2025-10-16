@@ -25,10 +25,10 @@ const reporters: Set<ErrorReporter<any>> = new Set([
   new UnknownErrorReporter(),
 ]);
 
-export function * formatErrorReport(error: unknown): Iterable<string> {
+export function* formatErrorReport(error: unknown): Iterable<string> {
   for (const reporter of reporters) {
     if (reporter.supports(error)) {
-      yield * reporter.report(error);
+      yield* reporter.report(error);
       return;
     }
   }
