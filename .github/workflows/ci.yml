@@ -17,7 +17,7 @@ jobs:
         with:
           node-version: '22'
       - name: Update NPM
-        run: npm i -g npm @latest
+        run: npm i -g npm@latest
       - name: Checkout repository
         uses: actions/checkout@v4
       - name: Install dependencies
