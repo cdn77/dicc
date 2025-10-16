@@ -12,10 +12,15 @@ jobs:
     name: ci
     runs-on: ubuntu-latest
     steps:
+      - name: Install PNPM
+        uses: pnpm/action-setup@v4
+        with:
+          run_install: false
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '22'
+          cache: pnpm
       - name: Update NPM
         run: npm i -g npm@latest
       - name: Checkout repository
