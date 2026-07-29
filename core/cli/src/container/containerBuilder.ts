@@ -267,10 +267,11 @@ export class ContainerBuilder {
       : (specifier: string) => specifier.replace(/\/index$/, '');
 
     for (const [resource, alias] of this.resources) {
+      const index = /\/index\.[mc]?[jt]sx?$/i.test(resource.getFilePath()) ? '/index' : '';
       const [, ext] = resource.getFilePath().match(/\.([mc]?)[jt]sx?$/i) ?? [];
       const specifier = this.sourceFile.getRelativePathAsModuleSpecifierTo(resource);
       const staticImport = toStatic(specifier, ext);
-      const dynamicImport = `${specifier}.${ext ?? ''}js`;
+      const dynamicImport = `${specifier}${index}.${ext ?? ''}js`;
       yield [alias, staticImport, dynamicImport];
     }
   }
