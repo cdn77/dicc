@@ -10,7 +10,7 @@ interface DynamicServices {
 }
 
 interface AnonymousServices {
-  '#ImplicitChildService0.0': Promise<childDefinitions0.ImplicitChildService>;
+  '#ImplicitChildService0.0': Promise<ServiceType<typeof childDefinitions0.ImplicitChildService>>;
 }
 
 export class TestChildContainer extends Container<PublicServices, DynamicServices, AnonymousServices> {

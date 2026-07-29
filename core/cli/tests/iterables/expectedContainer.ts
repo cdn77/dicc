@@ -6,18 +6,18 @@ interface PublicServices {
 }
 
 interface AnonymousServices {
-  '#AsyncService10.0': Promise<definitions0.AsyncService1>;
-  '#AsyncService20.0': Promise<definitions0.AsyncService2>;
-  '#AsyncService30.0': Promise<definitions0.AsyncService3>;
+  '#AsyncService10.0': Promise<ServiceType<typeof definitions0.AsyncService1>>;
+  '#AsyncService20.0': Promise<ServiceType<typeof definitions0.AsyncService2>>;
+  '#AsyncService30.0': Promise<ServiceType<typeof definitions0.AsyncService3>>;
   '#AsyncServices0': Promise<
-    | definitions0.AsyncService1
-    | definitions0.AsyncService2
-    | definitions0.AsyncService3
+    | ServiceType<typeof definitions0.AsyncService1>
+    | ServiceType<typeof definitions0.AsyncService2>
+    | ServiceType<typeof definitions0.AsyncService3>
   >;
   '#MixedServices0': Promise<
-    | definitions0.AsyncService1
-    | definitions0.AsyncService2
-    | definitions0.AsyncService3
+    | ServiceType<typeof definitions0.AsyncService1>
+    | ServiceType<typeof definitions0.AsyncService2>
+    | ServiceType<typeof definitions0.AsyncService3>
     | definitions0.SyncService1
     | definitions0.SyncService2
     | definitions0.SyncService3

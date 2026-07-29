@@ -7,7 +7,7 @@ interface PublicServices {
 
 interface AnonymousServices {
   '#ChildPublicService0.0': Promise<ForeignServiceType<ServiceType<typeof parentDefinitions0.childContainer>, 'childPublicService'>>;
-  '#ParentImplementationOfChildDynamicService0.0': Promise<parentDefinitions0.ParentImplementationOfChildDynamicService>;
+  '#ParentImplementationOfChildDynamicService0.0': Promise<ServiceType<typeof parentDefinitions0.ParentImplementationOfChildDynamicService>>;
   '#TestChildContainer0.0': Promise<ServiceType<typeof parentDefinitions0.childContainer>>;
 }
 

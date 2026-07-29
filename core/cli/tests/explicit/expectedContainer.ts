@@ -14,7 +14,7 @@ interface AnonymousServices {
   '#AnAlias0':
     | ServiceType<typeof definitions0.testWithExplicitAlias>
     | ServiceType<typeof definitions0.testWithImplicitAlias>;
-  '#AsyncPiProvider0.0': Promise<definitions0.AsyncPiProvider>;
+  '#AsyncPiProvider0.0': Promise<ServiceType<typeof definitions0.AsyncPiProvider>>;
   '#TestWithExplicitAlias0.0': ServiceType<typeof definitions0.testWithExplicitAlias>;
 }
 

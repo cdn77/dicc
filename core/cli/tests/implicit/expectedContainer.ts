@@ -16,7 +16,7 @@ interface AnonymousServices {
   '#AnotherWayToSayBye0.0': definitions0.AnotherWayToSayBye;
   '#OneWayToSayBye0.0': definitions0.OneWayToSayBye;
   '#TestAsyncDependency0.0': Promise<definitions0.TestAsyncDependency>;
-  '#TestAsyncFactoryMethod0.0': Promise<definitions0.TestAsyncFactoryMethod>;
+  '#TestAsyncFactoryMethod0.0': Promise<ServiceType<typeof definitions0.TestAsyncFactoryMethod>>;
   '#TestInjectionModes0.0': definitions0.TestInjectionModes;
   '#TestListDependency0.0': definitions0.TestListDependency;
   '#TestMultipleDependencies0.0': definitions0.TestMultipleDependencies;

@@ -7,7 +7,7 @@ interface PublicServices {
 }
 
 interface AnonymousServices {
-  '#AsyncDependency0.0': Promise<definitions0.AsyncDependency>;
+  '#AsyncDependency0.0': Promise<ServiceType<typeof definitions0.AsyncDependency>>;
   '#ResolverFactory0': Promise<ServiceType<typeof common0.ResolverFactory>>;
   '#ResolverFactory0.0': Promise<ServiceType<typeof common0.ResolverFactory>>;
   '#ResolverFactory0.1': ServiceType<typeof common0.ResolverFactory>;
