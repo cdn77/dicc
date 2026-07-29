@@ -520,7 +520,9 @@ export class ServiceAnalyser {
       kind: 'local',
       resource,
       path: `${resource}.${definition.path}`,
-      indirect: definition.isExplicit() || !!(definition.factory && !definition.factory.method),
+      indirect:
+        definition.isExplicit() ||
+        (!!definition.factory && definition.factory.method !== 'constructor'),
     };
   }
 
