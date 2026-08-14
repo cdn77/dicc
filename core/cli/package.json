@@ -9,7 +9,7 @@
     "ioc",
     "inversion of control"
   ],
-  "version": "1.0.0-rc.10",
+  "version": "1.0.0-rc.11",
   "license": "MIT",
   "author": {
     "name": "Dan Kadera",
@@ -49,13 +49,13 @@
     "publint": "publint"
   },
   "dependencies": {
-    "@debugr/console": "^3.0.0-rc.10",
-    "@debugr/core": "^3.0.0-rc.13",
+    "@debugr/console": "^4.0.1",
+    "@debugr/core": "^4.0.1",
     "dicc": "workspace:",
-    "ts-morph": "^27.0.2",
+    "ts-morph": "^28.0.0",
     "typescript": "catalog:",
-    "yaml": "^2.8.1",
-    "zod": "^4.1.12"
+    "yaml": "^2.9.0",
+    "zod": "^4.4.3"
   },
   "peerDependencies": {
     "ts-node": "catalog:"
